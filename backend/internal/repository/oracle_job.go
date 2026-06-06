@@ -1,39 +1,45 @@
+// Package repository Oracle 任务仓储
 package repository
 
+// 导入依赖
 import (
-	"context"
-	"time"
+	"context" // 上下文
+	"time"    // 时间
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool" // 连接池
 )
 
+// OracleJob Oracle 任务数据模型
 type OracleJob struct {
-	ID              int64      `json:"id"`
-	MatchID         *int64     `json:"match_id,omitempty"`
-	MarketID        int64      `json:"market_id"`
-	Status          string     `json:"status"`
-	PrimaryHome     *int       `json:"primary_home,omitempty"`
-	PrimaryAway     *int       `json:"primary_away,omitempty"`
-	SecondaryHome   *int       `json:"secondary_home,omitempty"`
-	SecondaryAway   *int       `json:"secondary_away,omitempty"`
-	ProposedOutcome *int       `json:"proposed_outcome,omitempty"`
-	TxHash          *string    `json:"tx_hash,omitempty"`
-	ErrorMessage    *string    `json:"error_message,omitempty"`
-	ExecuteAfter    time.Time  `json:"execute_after"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	MarketAddress   string     `json:"market_address,omitempty"`
-	Question        string     `json:"question,omitempty"`
+	ID              int64     `json:"id"`                         // 主键
+	MatchID         *int64    `json:"match_id,omitempty"`         // 关联比赛 ID
+	MarketID        int64     `json:"market_id"`                  // 关联市场 ID
+	Status          string    `json:"status"`                     // 状态
+	PrimaryHome     *int      `json:"primary_home,omitempty"`     // 主源主队得分
+	PrimaryAway     *int      `json:"primary_away,omitempty"`     // 主源客队得分
+	SecondaryHome   *int      `json:"secondary_home,omitempty"`   // 备源主队得分
+	SecondaryAway   *int      `json:"secondary_away,omitempty"`   // 备源客队得分
+	ProposedOutcome *int      `json:"proposed_outcome,omitempty"` // 提议结果
+	TxHash          *string   `json:"tx_hash,omitempty"`          // 交易哈希
+	ErrorMessage    *string   `json:"error_message,omitempty"`    // 错误消息
+	ExecuteAfter    time.Time `json:"execute_after"`              // 最早执行时间
+	CreatedAt       time.Time `json:"created_at"`                 // 创建时间
+	UpdatedAt       time.Time `json:"updated_at"`                 // 更新时间
+	MarketAddress   string    `json:"market_address,omitempty"`   // 市场合约地址（JOIN 取出）
+	Question        string    `json:"question,omitempty"`         // 问题（JOIN 取出）
 }
 
+// OracleJobRepo Oracle 任务仓储
 type OracleJobRepo struct {
-	pool *pgxpool.Pool
+	pool *pgxpool.Pool // 数据库连接池
 }
 
+// NewOracleJobRepo 创建 Oracle 任务仓储
 func NewOracleJobRepo(pool *pgxpool.Pool) *OracleJobRepo {
 	return &OracleJobRepo{pool: pool}
 }
 
+// Create 创建新任务
 func (r *OracleJobRepo) Create(ctx context.Context, marketID int64, matchID *int64, executeAfter time.Time) (int64, error) {
 	var id int64
 	err := r.pool.QueryRow(ctx, `
@@ -47,6 +53,7 @@ func (r *OracleJobRepo) Create(ctx context.Context, marketID int64, matchID *int
 	return id, nil
 }
 
+// HasActiveForMarket 判断某市场是否有活跃任务
 func (r *OracleJobRepo) HasActiveForMarket(ctx context.Context, marketID int64) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `
@@ -58,6 +65,7 @@ func (r *OracleJobRepo) HasActiveForMarket(ctx context.Context, marketID int64) 
 	return exists, err
 }
 
+// ListDue 获取所有到期待处理任务
 func (r *OracleJobRepo) ListDue(ctx context.Context, now time.Time) ([]OracleJob, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT j.id, j.match_id, j.market_id, j.status,
@@ -84,9 +92,10 @@ func (r *OracleJobRepo) ListDue(ctx context.Context, now time.Time) ([]OracleJob
 	return out, rows.Err()
 }
 
+// ListAll 列出所有任务（可选 status 过滤）
 func (r *OracleJobRepo) ListAll(ctx context.Context, status string, limit int) ([]OracleJob, error) {
 	if limit <= 0 {
-		limit = 50
+		limit = 50 // 默认 50
 	}
 	q := `
 		SELECT j.id, j.match_id, j.market_id, j.status,
@@ -96,6 +105,7 @@ func (r *OracleJobRepo) ListAll(ctx context.Context, status string, limit int) (
 		FROM oracle_jobs j
 		JOIN markets m ON m.id = j.market_id`
 	args := []interface{}{limit}
+	// 可选状态过滤
 	if status != "" {
 		q += ` WHERE j.status = $2`
 		args = []interface{}{limit, status}
@@ -118,6 +128,7 @@ func (r *OracleJobRepo) ListAll(ctx context.Context, status string, limit int) (
 	return out, rows.Err()
 }
 
+// UpdateStatus 更新任务状态及附带字段
 func (r *OracleJobRepo) UpdateStatus(ctx context.Context, id int64, status string, fields map[string]interface{}) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE oracle_jobs SET status = $2,
@@ -137,6 +148,7 @@ func (r *OracleJobRepo) UpdateStatus(ctx context.Context, id int64, status strin
 	return err
 }
 
+// scanOracleJobRow 从行扫描 OracleJob
 func scanOracleJobRow(rows interface {
 	Scan(dest ...any) error
 }) (OracleJob, error) {
@@ -148,7 +160,7 @@ func scanOracleJobRow(rows interface {
 		&j.ProposedOutcome, &txHash, &errMsg, &j.ExecuteAfter, &j.CreatedAt, &j.UpdatedAt,
 		&j.MarketAddress, &j.Question,
 	)
-	j.TxHash = txHash
-	j.ErrorMessage = errMsg
+	j.TxHash = txHash       // 交易哈希
+	j.ErrorMessage = errMsg // 错误信息
 	return j, err
 }
