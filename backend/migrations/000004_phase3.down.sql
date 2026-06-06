@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS reconciliation_runs;
+DROP TABLE IF EXISTS kyc_events;
+DROP TABLE IF EXISTS geo_access_log;
+DROP TABLE IF EXISTS platform_stats_daily;
+ALTER TABLE markets DROP COLUMN IF EXISTS market_type;
+ALTER TABLE markets DROP COLUMN IF EXISTS outcome_count;
+ALTER TABLE markets DROP COLUMN IF EXISTS fee_bps;
+ALTER TABLE markets DROP COLUMN IF EXISTS reserve_yes;
+ALTER TABLE markets DROP COLUMN IF EXISTS reserve_no;
+ALTER TABLE markets DROP COLUMN IF EXISTS price_yes_bps;

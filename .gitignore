@@ -1,0 +1,32 @@
+# Environment
+.env
+.env.local
+*.local
+
+# Dependencies
+node_modules/
+
+# Hardhat
+contracts/artifacts/
+contracts/cache/
+contracts/coverage/
+contracts/coverage.json
+
+# Go
+backend/bin/
+backend/*.exe
+*.test
+
+# Frontend
+frontend/dist/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

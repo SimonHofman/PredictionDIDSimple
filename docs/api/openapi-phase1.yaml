@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: Prediction DID API — Phase 1
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: OK
+  /matches:
+    get:
+      summary: List matches
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Match list
+  /matches/{id}:
+    get:
+      summary: Match detail with markets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+  /markets:
+    get:
+      summary: List markets
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /markets/{id}:
+    get:
+      summary: Market detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+  /auth/siwe:
+    post:
+      summary: SIWE login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                signature: { type: string }
+      responses:
+        '200':
+          description: JWT issued
+  /users/bind-did:
+    post:
+      summary: Bind did:pkh to user
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                did: { type: string }
+                signature: { type: string }
+      responses:
+        '200':
+          description: OK
+  /me/positions:
+    get:
+      summary: User positions (indexed)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

@@ -1,0 +1,29 @@
+[
+  {
+    "external_id": "wc-2026-semi-001",
+    "home_team": "Argentina",
+    "away_team": "Croatia",
+    "kickoff_at": "2026-07-14T20:00:00Z",
+    "status": "FINISHED",
+    "home_score": 2,
+    "away_score": 1
+  },
+  {
+    "external_id": "wc-2026-semi-002",
+    "home_team": "France",
+    "away_team": "Morocco",
+    "kickoff_at": "2026-07-15T20:00:00Z",
+    "status": "SCHEDULED",
+    "home_score": null,
+    "away_score": null
+  },
+  {
+    "external_id": "wc-2026-final-001",
+    "home_team": "Argentina",
+    "away_team": "France",
+    "kickoff_at": "2026-07-19T20:00:00Z",
+    "status": "SCHEDULED",
+    "home_score": null,
+    "away_score": null
+  }
+]
