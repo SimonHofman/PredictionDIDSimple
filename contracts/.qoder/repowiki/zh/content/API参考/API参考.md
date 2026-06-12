@@ -1,652 +1,581 @@
 # API参考
 
 <cite>
-**本文引用的文件**
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol)
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol)
-- [MarketFactory.test.js](file://contracts/test/MarketFactory.test.js)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js)
-- [deploy.js](file://contracts/scripts/deploy.js)
-- [seed-markets.js](file://contracts/scripts/seed-markets.js)
-- [resolve.js](file://contracts/scripts/resolve.js)
-- [package.json](file://contracts/package.json)
-- [hardhat.config.js](file://contracts/hardhat.config.js)
+**本文档引用的文件**
+- [DIDRegistry.sol](file://contracts/DIDRegistry.sol)
+- [MarketFactory.sol](file://contracts/MarketFactory.sol)
+- [PredictionMarket.sol](file://contracts/PredictionMarket.sol)
+- [IPredictionMarket.sol](file://contracts/interfaces/IPredictionMarket.sol)
+- [OracleAdapter.sol](file://contracts/OracleAdapter.sol)
+- [MarketFactoryV3.sol](file://contracts/MarketFactoryV3.sol)
+- [PredictionMarketV3.sol](file://contracts/PredictionMarketV3.sol)
+- [MultiOutcomeMarket.sol](file://contracts/MultiOutcomeMarket.sol)
+- [OracleAdapterV2.sol](file://contracts/OracleAdapterV2.sol)
+- [PredictionMarket.test.js](file://test/PredictionMarket.test.js)
+- [deploy.js](file://scripts/deploy.js)
+- [hardhat.config.js](file://hardhat.config.js)
+- [package.json](file://package.json)
 </cite>
 
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
-4. [架构总览](#架构总览)
+4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [依赖关系分析](#依赖关系分析)
-7. [性能与优化建议](#性能与优化建议)
-8. [故障排查指南](#故障排查指南)
+7. [性能考虑](#性能考虑)
+8. [故障排除指南](#故障排除指南)
 9. [结论](#结论)
-10. [附录：API清单与示例](#附录api清单与示例)
+10. [附录](#附录)
 
 ## 简介
-本文件为 PredictionDIDSimple 合约系统的完整 API 参考，覆盖以下内容：
-- IPredictionMarket 接口的函数规范与状态语义
-- MarketFactory 的市场创建 API（v2）与 MarketFactoryV3 的二元与多结果市场创建 API（v3）
-- OracleAdapter 的预言机操作 API（含时间锁与即时执行）
-- OracleAdapterV2 的多签提案式解析 API
-- 每个 API 的参数、返回值、事件与错误条件
-- 使用示例与最佳实践
-- 版本兼容性与变更历史
-- SDK 集成与客户端实现指导
+预测市场DID认证系统是一个基于以太坊的去中心化预测市场平台，集成了DID（去中心化身份）认证功能。该系统允许用户对各种事件进行预测投注，并通过智能合约确保交易的透明性和安全性。
+
+系统采用多层架构设计，包括：
+- **DID认证层**：提供去中心化身份绑定和验证功能
+- **市场管理层**：负责预测市场的创建、管理和运营
+- **预言机适配器层**：处理市场结算和作废流程
+- **多版本兼容层**：支持不同版本的市场合约
 
 ## 项目结构
-系统采用“工厂 + 市场 + 预言机适配器”的分层架构：
-- 工厂负责部署与管理市场合约
-- 市场合约负责交易、结算与派发
-- 预言机适配器负责对市场的解析/作废进行权限控制与时间锁
+项目采用模块化设计，按功能层次组织代码：
 
 ```mermaid
 graph TB
-subgraph "工厂"
-MF["MarketFactory<br/>创建二元市场"]
-MF3["MarketFactoryV3<br/>创建二元/多结果市场"]
+subgraph "应用层"
+DID[DIDRegistry.sol]
+Interfaces[IPredictionMarket.sol]
 end
-subgraph "市场"
-PM["PredictionMarket<br/>二元市场(v1)"]
-PM3["PredictionMarketV3<br/>二元CPMM(v3)"]
-MOM["MultiOutcomeMarket<br/>N结果市场(v3)"]
+subgraph "市场管理层"
+MF[MarketFactory.sol]
+MF3[MarketFactoryV3.sol]
+PM[PredictionMarket.sol]
+PM3[PredictionMarketV3.sol]
+MOM[MultiOutcomeMarket.sol]
 end
-subgraph "预言机适配器"
-OA["OracleAdapter<br/>时间锁解析/作废"]
-OAV2["OracleAdapterV2<br/>多签提案解析/作废"]
+subgraph "预言机层"
+OA[OracleAdapter.sol]
+OA2[OracleAdapterV2.sol]
 end
-subgraph "辅助"
-IFace["IPredictionMarket<br/>接口"]
+subgraph "基础设施"
+Config[hardhat.config.js]
+Deploy[deploy.js]
+Test[PredictionMarket.test.js]
 end
+DID --> MF
 MF --> PM
 MF3 --> PM3
 MF3 --> MOM
-OA --> IFace
-OAV2 --> IFace
-PM --- IFace
-PM3 --- IFace
-MOM --- IFace
+OA --> PM
+OA2 --> Interfaces
+OA --> PM3
+OA2 --> PM3
 ```
 
-图表来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
+**图表来源**
+- [DIDRegistry.sol:1-39](file://contracts/DIDRegistry.sol#L1-L39)
+- [MarketFactory.sol:1-68](file://contracts/MarketFactory.sol#L1-L68)
+- [PredictionMarket.sol:1-145](file://contracts/PredictionMarket.sol#L1-L145)
+- [OracleAdapter.sol:1-96](file://contracts/OracleAdapter.sol#L1-L96)
 
-章节来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
+**章节来源**
+- [hardhat.config.js:1-33](file://hardhat.config.js#L1-L33)
+- [package.json:1-22](file://package.json#L1-L22)
 
 ## 核心组件
-- IPredictionMarket 接口：定义市场状态查询、解析与作废三个外部函数，作为预言机适配器调用的目标接口。
-- MarketFactory：仅所有者可调用，创建二元 Yes/No 市场，并记录市场映射与计数。
-- MarketFactoryV3：支持暂停、默认费用、最大投注等配置；创建二元 CPMM 市场或 N 结果市场。
-- OracleAdapter：基于角色控制的解析/作废；支持时间锁请求与确认，或直接即时解析（当时间锁为0）。
-- OracleAdapterV2：多签提案式解析，达到阈值后自动执行；同样支持作废。
-- PredictionMarket / V3 / MultiOutcomeMarket：实现具体的交易、结算、派发逻辑。
+系统由以下核心组件构成：
 
-章节来源
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
+### DID认证组件
+- **DIDRegistry**：提供DID哈希绑定和解析功能
+- 支持地址到DID的双向映射
+- 基于ECDSA签名验证的身份认证
 
-## 架构总览
-下图展示从客户端到工厂、再到市场的典型调用链路，以及预言机通过适配器对市场进行解析/作废的流程。
+### 市场管理组件
+- **MarketFactory**：二元预测市场的创建和管理
+- **MarketFactoryV3**：支持CPMM模型和多结果市场的高级工厂
+- **PredictionMarket**：基础二元预测市场
+- **PredictionMarketV3**：CPMM模型的二元预测市场
+- **MultiOutcomeMarket**：多结果预测市场
+
+### 预言机适配器组件
+- **OracleAdapter**：带时间锁的结算适配器
+- **OracleAdapterV2**：多签授权的结算适配器
+
+**章节来源**
+- [DIDRegistry.sol:10-39](file://contracts/DIDRegistry.sol#L10-L39)
+- [MarketFactory.sol:10-68](file://contracts/MarketFactory.sol#L10-L68)
+- [PredictionMarketV3.sol:10-218](file://contracts/PredictionMarketV3.sol#L10-L218)
+
+## 架构概览
+系统采用分层架构，确保职责分离和模块化设计：
 
 ```mermaid
-sequenceDiagram
-participant Client as "客户端"
-participant Factory as "MarketFactory/MarketFactoryV3"
-participant Market as "PredictionMarket/V3 或 MultiOutcomeMarket"
-participant Oracle as "OracleAdapter/OracleAdapterV2"
-Client->>Factory : "创建市场"
-Factory-->>Client : "返回市场地址/ID"
-Client->>Market : "买入/添加流动性"
-Note over Client,Market : "交易期间"
-Oracle->>Market : "解析/作废受权限与时间锁约束"
-Market-->>Oracle : "状态更新"
-Client->>Market : "派发"
+graph TB
+subgraph "用户界面层"
+UI[前端应用]
+Wallet[钱包集成]
+end
+subgraph "业务逻辑层"
+Auth[DID认证服务]
+MarketOps[市场操作服务]
+Settlement[结算服务]
+end
+subgraph "合约层"
+DIDContract[DIDRegistry]
+MarketContracts[市场合约集合]
+OracleContracts[预言机合约]
+end
+subgraph "区块链网络"
+Ethereum[Ethereum网络]
+Testnet[Testnet网络]
+end
+UI --> Auth
+Wallet --> MarketOps
+Auth --> DIDContract
+MarketOps --> MarketContracts
+Settlement --> OracleContracts
+DIDContract --> Ethereum
+MarketContracts --> Ethereum
+OracleContracts --> Ethereum
+Testnet --> Ethereum
 ```
 
-图表来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L37-L54)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L37-L88)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L64-L113)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L92-L165)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L65-L111)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L48-L81)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L44-L81)
+**图表来源**
+- [DIDRegistry.sol:12-39](file://contracts/DIDRegistry.sol#L12-L39)
+- [MarketFactoryV3.sol:14-104](file://contracts/MarketFactoryV3.sol#L14-L104)
+- [OracleAdapterV2.sol:11-95](file://contracts/OracleAdapterV2.sol#L11-L95)
 
 ## 详细组件分析
 
-### IPredictionMarket 接口规范
-- 函数
-  - status(): 外部视图函数，返回当前市场状态（0=Open, 1=Resolved, 2=Voided）
-  - resolve(winningOutcome: uint8): 外部函数，由预言机调用以设置获胜结果
-  - voidMarket(): 外部函数，由预言机调用以作废市场
-- 错误与前置条件
-  - resolve/voidMarket 通常要求市场处于 Open 状态
-  - resolve 的 winningOutcome 必须在有效范围内（二元为 0/1）
+### DIDRegistry 组件
+DIDRegistry提供去中心化身份绑定功能，允许用户将DID哈希与以太坊地址关联。
 
-章节来源
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L83-L95)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L137-L149)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L76-L87)
+#### 主要功能
+- **bindDid**：绑定DID哈希到调用者地址
+- **resolveDid**：解析地址对应的DID哈希
+- **签名验证**：使用ECDSA验证用户身份
 
-### MarketFactory（v2）——二元市场创建 API
-- 关键字段
-  - collateral: 保证金代币地址（不可变）
-  - oracle: 预言机适配器地址
-  - marketCount: 市场计数
-  - markets[marketId]: 市场 ID 到地址映射
-- 事件
-  - MarketCreated(marketId, market, matchRef, question, endTime)
-- 公共函数
-  - setOracle(_oracle: address) -> 仅所有者
-  - createMarket(matchRef: bytes32, question: string memory, endTime: uint256) -> (address, uint256)
-  - version() -> 返回字符串版本号
-- 参数说明
-  - matchRef: 赛事/问题标识符（bytes32）
-  - question: 市场问题文本
-  - endTime: 市场结束时间戳（必须大于当前区块时间）
-- 返回值
-  - createMarket 返回新市场地址与自增 ID
-- 错误条件
-  - 初始化时 collateral/oracle 不能为零地址
-  - endTime 必须晚于当前区块时间
-  - setOracle 传入零地址会失败
-- 使用示例（路径）
-  - [测试用例：创建市场并断言事件与属性](file://contracts/test/MarketFactory.test.js#L6-L26)
-  - [部署脚本：部署工厂并授予适配器权限](file://contracts/scripts/deploy.js#L25-L28)
-
-章节来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactory.test.js](file://contracts/test/MarketFactory.test.js#L6-L26)
-- [deploy.js](file://contracts/scripts/deploy.js#L25-L28)
-
-### MarketFactoryV3（v3）——二元与多结果市场创建 API
-- 关键字段
-  - collateral: 保证金代币地址（不可变）
-  - oracle: 预言机地址
-  - defaultFeeBps: 默认手续费（基点）
-  - defaultMaxBet: 默认单用户最大投注
-  - marketCount: 市场计数
-  - markets[marketId] → marketTypes[marketId]（0=二元v3, 1=多结果）
-- 事件
-  - BinaryMarketCreated(id, market, matchRef, question)
-  - MultiMarketCreated(id, market, outcomeCount, question)
-- 公共函数
-  - pause()/unpause() -> 仅所有者，配合 Pausable
-  - setOracle(_oracle: address) -> 仅所有者
-  - setDefaultFeeBps(bps: uint16) -> 仅所有者
-  - createBinaryMarket(matchRef, question, endTime, initialLiquidity) -> (address, uint256)
-  - createMultiMarket(matchRef, question, endTime, outcomeCount: uint8) -> (address, uint256)
-  - version() -> 返回字符串版本号
-- 参数说明
-  - initialLiquidity: 初始流动性（每边相等），用于种子化 CPMM
-  - outcomeCount: 多结果市场结果数量（2-8）
-- 返回值
-  - 返回新市场地址与自增 ID，并登记市场类型
-- 错误条件
-  - 创建多结果市场时 outcomeCount 必须在 [2,8]
-  - 暂停状态下无法创建新市场
-- 使用示例（路径）
-  - [播种脚本：批量创建市场](file://contracts/scripts/seed-markets.js#L15-L27)
-
-章节来源
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [seed-markets.js](file://contracts/scripts/seed-markets.js#L15-L27)
-
-### OracleAdapter（v2）——时间锁解析与作废 API
-- 角色与权限
-  - DEFAULT_ADMIN_ROLE：可设置时间锁、工厂、授权 Oracle
-  - ORACLE_ROLE：可发起解析请求、确认解析、立即解析、作废市场
-- 关键状态
-  - timelockDelay: 时间锁延迟（秒）
-  - factory: 工厂地址
-  - pending[market]: 待执行解析的计划（结果、执行时间、是否激活）
-- 公共函数
-  - setTimelockDelay(delay: uint256) -> 仅管理员
-  - setFactory(_factory: address) -> 仅管理员
-  - grantOracle(account: address) -> 仅管理员
-  - requestResolve(market: address, outcome: uint8) -> 仅 Oracle
-  - confirmResolve(market: address) -> 仅 Oracle（需到达执行时间）
-  - resolveNow(market: address, outcome: uint8) -> 仅 Oracle（当 timelockDelay==0）
-  - voidMarket(market: address) -> 仅 Oracle
-- 行为流程（时间锁）
+#### API规范
 ```mermaid
-flowchart TD
-Start(["开始"]) --> Req["requestResolve()<br/>校验状态=Open且结果有效<br/>计算executeAfter=now+delay<br/>写入pending并发出请求事件"]
-Req --> Wait["等待时间锁到期"]
-Wait --> Conf["confirmResolve()<br/>校验pending存在且已到期<br/>标记pending=false并调用resolve()"]
-Conf --> Done(["完成"])
+classDiagram
+class DIDRegistry {
++mapping(address => bytes32) didHashOf
++event DidBound(address, bytes32)
++constructor()
++bindDid(bytes32, bytes) external
++resolveDid(address) external view returns(bytes32)
+}
+class ECDSA {
++recover(bytes32, bytes) returns(address)
++toEthSignedMessageHash() returns(bytes32)
+}
+class MessageHashUtils {
++toEthSignedMessageHash() returns(bytes32)
+}
+DIDRegistry --> ECDSA : uses
+DIDRegistry --> MessageHashUtils : uses
 ```
 
-图表来源
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L48-L67)
+**图表来源**
+- [DIDRegistry.sol:12-39](file://contracts/DIDRegistry.sol#L12-L39)
 
-- 行为流程（即时解析）
-```mermaid
-flowchart TD
-S(["开始"]) --> CheckTL{"timelockDelay==0?"}
-CheckTL --> |否| Err["报错：使用request+confirm"]
-CheckTL --> |是| CheckRes["校验结果有效且市场Open"]
-CheckRes --> Call["调用resolve()并发出确认事件"]
-Call --> E(["结束"])
+#### 使用示例
+```javascript
+// 绑定DID到地址
+const didHash = ethers.utils.keccak256("did:example:123");
+const signature = await signer.signMessage(
+    `BindDID:${userAddress}:${didHash}`
+);
+await didRegistry.bindDid(didHash, signature);
 ```
 
-图表来源
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L69-L75)
+**章节来源**
+- [DIDRegistry.sol:22-37](file://contracts/DIDRegistry.sol#L22-L37)
 
-- 使用示例（路径）
-  - [测试用例：时间锁解析与作废退款](file://contracts/test/OracleAdapter.test.js#L6-L25)
-  - [测试用例：作废后派发原投注金额](file://contracts/test/OracleAdapter.test.js#L27-L48)
+### MarketFactory 组件
+MarketFactory负责创建和管理二元预测市场。
 
-章节来源
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js#L6-L25)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js#L27-L48)
+#### 主要功能
+- **createMarket**：部署新的预测市场合约
+- **setOracle**：更新预言机地址
+- **市场跟踪**：维护市场ID到地址的映射
 
-### OracleAdapterV2（v2）——多签提案解析 API
-- 角色与权限
-  - DEFAULT_ADMIN_ROLE：可设置阈值、授权 Oracle
-  - ORACLE_ROLE：可提交提案、批准提案、作废市场
-- 关键状态
-  - threshold: 解析所需批准数
-  - proposalCount: 提案计数
-  - proposals[id]：提案（市场、结果、批准数、是否已执行）
-  - approved[id][account]：账户对提案的批准状态
-- 公共函数
-  - setThreshold(t: uint256) -> 仅管理员
-  - grantOracle(account: address) -> 仅管理员
-  - proposeResolve(market: address, outcome: uint8) -> 仅 Oracle（返回提案ID）
-  - approveResolve(id: uint256) -> 仅 Oracle（达到阈值后自动执行）
-  - voidMarket(market: address) -> 仅 Oracle
-- 行为流程（多签）
-```mermaid
-flowchart TD
-P0["proposeResolve()<br/>校验Open且结果有效<br/>生成提案并自批准"] --> A["approveResolve()<br/>标记批准并累加"]
-A --> Th{"批准数>=阈值?"}
-Th --> |否| End0["等待更多批准"]
-Th --> |是| Exec["_execute()<br/>调用resolve()并标记已执行"]
-Exec --> Done0["完成"]
-```
-
-图表来源
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L44-L75)
-
-- 使用示例（路径）
-  - [部署脚本：部署适配器并授权 Oracle](file://contracts/scripts/deploy.js#L15-L17)
-  - [测试用例：多签提案解析](file://contracts/test/OracleAdapter.test.js#L6-L25)
-
-章节来源
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [deploy.js](file://contracts/scripts/deploy.js#L15-L17)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js#L6-L25)
-
-### PredictionMarket（v1）——二元市场 API
-- 状态枚举：Open、Resolved、Voided
-- 关键字段：collateral、oracle、factory、matchRef、question、endTime、status、winningOutcome、两池余额与用户余额映射
-- 公共函数
-  - buy(outcome: uint8, amount: uint256) -> 投注
-  - resolve(_winningOutcome: uint8) -> 仅 Oracle
-  - voidMarket() -> 仅 Oracle
-  - claim() -> 派发（Resolved按池比例，Voided退回本金）
-- 状态查询
-  - status() -> 返回枚举对应的 uint8
-- 使用示例（路径）
-  - [测试用例：作废后派发](file://contracts/test/OracleAdapter.test.js#L27-L48)
-
-章节来源
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js#L27-L48)
-
-### PredictionMarketV3（v3）——二元 CPMM 市场 API
-- 新增功能：手续费、最大投注、流动性池、LP 池份额、种子流动性
-- 关键字段：feeBps、maxBetPerUser、reserveYes/reserveNo、totalLPSupply、lpBalance、userBetTotal
-- 公共函数
-  - seedReserves(perSide: uint256, lpRecipient: address) -> 仅工厂
-  - buy(outcome: uint8, amountIn: uint256) -> 投注（扣除手续费，按恒定乘积公式换算份额）
-  - addLiquidity(amount: uint256) -> 添加流动性（按 50/50 分配至两池）
-  - removeLiquidity(lpAmount: uint256) -> 移除流动性
-  - resolve/_winningOutcome: uint8 -> 仅 Oracle
-  - voidMarket() -> 仅 Oracle
-  - claim() -> 派发（Resolved按池比例，Voided退回本金）
-  - status() -> 返回枚举对应的 uint8
-  - getPoolState() -> 查询两池储备与胜率（千分之几）
-- 使用示例（路径）
-  - [部署脚本：创建带初始流动性二元市场](file://contracts/scripts/deploy.js#L43-L60)
-
-章节来源
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [deploy.js](file://contracts/scripts/deploy.js#L43-L60)
-
-### MultiOutcomeMarket（v3）——N 结果市场 API
-- 支持 2-8 个结果
-- 关键字段：pool[]、stake[][]、winningOutcome
-- 公共函数
-  - buy(outcome: uint8, amount: uint256) -> 投注
-  - resolve(_outcome: uint8) -> 仅 Oracle
-  - voidMarket() -> 仅 Oracle
-  - claim() -> 派发（Resolved按对应池比例，Voided退回本金）
-  - status() -> 返回枚举对应的 uint8
-- 使用示例（路径）
-  - [播种脚本：创建多结果市场](file://contracts/scripts/seed-markets.js#L68-L88)
-
-章节来源
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
-- [seed-markets.js](file://contracts/scripts/seed-markets.js#L68-L88)
-
-## 依赖关系分析
-- 继承与混入
-  - MarketFactory/MarketFactoryV3 继承 Ownable
-  - OracleAdapter/OracleAdapterV2 继承 AccessControl
-  - PredictionMarketV3/MultiOutcomeMarket 继承 ReentrancyGuard
-- 外部依赖
-  - IERC20、SafeERC20、Pausable、ReentrancyGuard 来自 OpenZeppelin
-- 内部依赖
-  - OracleAdapter/OracleAdapterV2 通过 IPredictionMarket 调用市场合约
-  - MarketFactoryV3 在创建市场后登记市场类型
-
+#### API规范
 ```mermaid
 classDiagram
 class MarketFactory {
-+setOracle(_oracle)
-+createMarket(...)
-+version()
-}
-class MarketFactoryV3 {
-+pause()
-+unpause()
-+createBinaryMarket(...)
-+createMultiMarket(...)
-+version()
-}
-class OracleAdapter {
-+setTimelockDelay(...)
-+setFactory(...)
-+grantOracle(...)
-+requestResolve(...)
-+confirmResolve(...)
-+resolveNow(...)
-+voidMarket(...)
-}
-class OracleAdapterV2 {
-+setThreshold(...)
-+grantOracle(...)
-+proposeResolve(...)
-+approveResolve(...)
-+voidMarket(...)
++IERC20 collateral
++address oracle
++uint256 marketCount
++mapping(uint256 => address) markets
++event MarketCreated(uint256, address, bytes32, string, uint256)
++constructor(address, address)
++setOracle(address) external
++createMarket(bytes32, string, uint256)
+external onlyOwner returns(address, uint256)
++version() external pure returns(string)
 }
 class PredictionMarket {
-+buy(...)
-+resolve(...)
-+voidMarket(...)
-+claim()
-+status()
++IERC20 collateral
++address oracle
++bytes32 matchRef
++string question
++uint256 endTime
++Status status
++buy(uint8, uint256) external
++resolve(uint8) external
++voidMarket() external
++claim() external
 }
-class PredictionMarketV3 {
-+seedReserves(...)
-+buy(...)
-+addLiquidity(...)
-+removeLiquidity(...)
-+resolve(...)
-+voidMarket(...)
-+claim()
-+status()
-+getPoolState()
-}
-class MultiOutcomeMarket {
-+buy(...)
-+resolve(...)
-+voidMarket(...)
-+claim()
-+status()
-}
-class IPredictionMarket {
-+status()
-+resolve(...)
-+voidMarket()
-}
-MarketFactory --> PredictionMarket : "部署"
-MarketFactoryV3 --> PredictionMarketV3 : "部署"
-MarketFactoryV3 --> MultiOutcomeMarket : "部署"
-OracleAdapter --> IPredictionMarket : "调用"
-OracleAdapterV2 --> IPredictionMarket : "调用"
-PredictionMarket ..|> IPredictionMarket
-PredictionMarketV3 ..|> IPredictionMarket
-MultiOutcomeMarket ..|> IPredictionMarket
+MarketFactory --> PredictionMarket : creates
 ```
 
-图表来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
+**图表来源**
+- [MarketFactory.sol:12-68](file://contracts/MarketFactory.sol#L12-L68)
+- [PredictionMarket.sol:11-145](file://contracts/PredictionMarket.sol#L11-L145)
 
-章节来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L8-L60)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L10-L94)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L7-L83)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L7-L83)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L7-L134)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L8-L200)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L8-L113)
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
+#### 错误处理
+- **collateral地址验证**：确保抵押品地址不为零
+- **oracle地址验证**：确保预言机地址不为零
+- **时间戳验证**：确保截止时间在未来
 
-## 性能与优化建议
-- 交易路径
-  - v3 CPMM 交易采用恒定乘积公式，gas 与 slippage 成正比；建议批量聚合小额订单
-  - 流动性添加/移除按 50/50 分配，注意极端价格偏移导致的资产稀释
-- 风险与安全
-  - ReentrancyGuard 已启用，避免重入攻击
-  - 手续费与最大投注限制有助于控制风险敞口
-- 区块参数
-  - EVM 版本为 Cancun，优化器 runs=200，适合生产部署
+**章节来源**
+- [MarketFactory.sol:29-61](file://contracts/MarketFactory.sol#L29-L61)
 
-章节来源
-- [hardhat.config.js](file://contracts/hardhat.config.js#L7-L13)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L92-L135)
+### PredictionMarket 组件
+基础二元预测市场合约，实现简单的互池式投注机制。
 
-## 故障排查指南
-- 常见错误与定位
-  - “not open”：市场状态非 Open（已结束/已解析/已作废）
-  - “timelock”：未到时间锁到期时间
-  - “invalid outcome”：结果值超出范围（二元为 0/1，多结果上限不同）
-  - “zero addr/end in past”：初始化参数非法
-  - “not claimable/nothing to claim”：市场尚未可派发或无可派发金额
-- 定位方法
-  - 通过 IPredictionMarket.status() 查询当前状态
-  - 对照各合约 require 前置条件逐项检查
-  - 使用测试脚本复现问题场景（如时间锁、作废退款）
+#### 核心数据结构
+```mermaid
+classDiagram
+class PredictionMarket {
++Status status
++uint8 winningOutcome
++uint256 yesPool
++uint256 noPool
++mapping(address => uint256) yesBalance
++mapping(address => uint256) noBalance
++mapping(address => bool) claimed
++buy(uint8, uint256) external
++resolve(uint8) external
++voidMarket() external
++claim() external
+}
+class Status {
+<<enumeration>>
+Open
+Resolved
+Voided
+}
+PredictionMarket --> Status : uses
+```
 
-章节来源
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L48-L81)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L44-L81)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L64-L113)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L92-L165)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L65-L111)
+**图表来源**
+- [PredictionMarket.sol:14-41](file://contracts/PredictionMarket.sol#L14-L41)
+
+#### 投注流程
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant Market as PredictionMarket
+participant Token as ERC20代币
+participant Oracle as 预言机
+User->>Token : approve(Market, 金额)
+User->>Market : buy(outcome, 金额)
+Market->>Token : safeTransferFrom(User, 金额)
+Market->>Market : 更新资金池和余额
+Market-->>User : 触发Bought事件
+Oracle->>Market : resolve(获胜结果)
+Market->>Market : 设置状态为Resolved
+Market-->>Oracle : 触发Resolved事件
+User->>Market : claim()
+Market->>Token : safeTransfer(奖励金额)
+Market-->>User : 触发Claimed事件
+```
+
+**图表来源**
+- [PredictionMarket.sol:70-123](file://contracts/PredictionMarket.sol#L70-L123)
+
+**章节来源**
+- [PredictionMarket.sol:70-145](file://contracts/PredictionMarket.sol#L70-L145)
+
+### MarketFactoryV3 组件
+高级市场工厂，支持CPMM模型和多结果市场。
+
+#### 新增功能
+- **CPMM模型**：使用恒定乘积做市商模型
+- **流动性池**：支持LP份额管理和收益分配
+- **多结果市场**：支持2-8个结果的预测市场
+- **暂停机制**：支持合约暂停和恢复
+
+#### API规范
+```mermaid
+classDiagram
+class MarketFactoryV3 {
++IERC20 collateral
++address oracle
++uint16 defaultFeeBps
++uint256 defaultMaxBet
++uint256 marketCount
++mapping(uint256 => address) markets
++mapping(uint256 => uint8) marketTypes
++createBinaryMarket(...) external onlyOwner whenNotPaused
++createMultiMarket(...) external onlyOwner whenNotPaused
++pause() external onlyOwner
++unpause() external onlyOwner
+}
+class PredictionMarketV3 {
++uint256 reserveYes
++uint256 reserveNo
++uint256 totalLPSupply
++uint256 collectedFees
++addLiquidity(uint256) external
++removeLiquidity(uint256) external
++seedReserves(uint256, address) external
++getPoolState() external view
+}
+class MultiOutcomeMarket {
++uint8 outcomeCount
++uint256[] pool
++mapping(address => mapping(uint8 => uint256)) stake
++buy(uint8, uint256) external
++resolve(uint8) external
++claim() external
+}
+MarketFactoryV3 --> PredictionMarketV3 : creates
+MarketFactoryV3 --> MultiOutcomeMarket : creates
+```
+
+**图表来源**
+- [MarketFactoryV3.sol:14-104](file://contracts/MarketFactoryV3.sol#L14-L104)
+- [PredictionMarketV3.sol:12-218](file://contracts/PredictionMarketV3.sol#L12-L218)
+- [MultiOutcomeMarket.sol:12-124](file://contracts/MultiOutcomeMarket.sol#L12-L124)
+
+**章节来源**
+- [MarketFactoryV3.sol:44-97](file://contracts/MarketFactoryV3.sol#L44-L97)
+
+### OracleAdapter 组件
+预言机适配器，提供市场结算和作废的授权机制。
+
+#### 时间锁机制
+```mermaid
+flowchart TD
+Start([请求结算]) --> Validate["验证市场状态和结果"]
+Validate --> CheckTime{"时间锁延迟 > 0?"}
+CheckTime --> |是| Schedule["设置可执行时间"]
+CheckTime --> |否| Execute["立即执行"]
+Schedule --> Pending["等待时间锁到期"]
+Pending --> Confirm["确认执行"]
+Confirm --> Execute
+Execute --> Complete["结算完成"]
+Validate --> Error["验证失败"]
+Error --> End([结束])
+Complete --> End
+```
+
+**图表来源**
+- [OracleAdapter.sol:57-87](file://contracts/OracleAdapter.sol#L57-L87)
+
+#### 多签机制
+```mermaid
+sequenceDiagram
+participant Oracle1 as 预言机1
+participant Oracle2 as 预言机2
+participant OracleN as 预言机N
+participant Adapter as OracleAdapterV2
+participant Market as 预言机合约
+Oracle1->>Adapter : proposeResolve(market, outcome)
+Adapter->>Adapter : 创建提案并自动批准
+Oracle2->>Adapter : approveResolve(id)
+OracleN->>Adapter : approveResolve(id)
+Note over Adapter : 当批准数达到阈值时
+Adapter->>Market : resolve(outcome)
+Adapter-->>Oracle1 : 触发ProposalExecuted事件
+```
+
+**图表来源**
+- [OracleAdapterV2.sol:51-86](file://contracts/OracleAdapterV2.sol#L51-L86)
+
+**章节来源**
+- [OracleAdapter.sol:57-94](file://contracts/OracleAdapter.sol#L57-L94)
+
+## 依赖关系分析
+
+### 合约依赖图
+```mermaid
+graph TB
+subgraph "OpenZeppelin依赖"
+Ownable["@openzeppelin/contracts/access/Ownable"]
+AccessControl["@openzeppelin/contracts/access/AccessControl"]
+SafeERC20["@openzeppelin/contracts/token/ERC20/utils/SafeERC20"]
+ReentrancyGuard["@openzeppelin/contracts/utils/ReentrancyGuard"]
+Pausable["@openzeppelin/contracts/utils/Pausable"]
+end
+subgraph "系统合约"
+DIDRegistry[DIDRegistry.sol]
+MarketFactory[MarketFactory.sol]
+PredictionMarket[PredictionMarket.sol]
+OracleAdapter[OracleAdapter.sol]
+MarketFactoryV3[MarketFactoryV3.sol]
+PredictionMarketV3[PredictionMarketV3.sol]
+MultiOutcomeMarket[MultiOutcomeMarket.sol]
+OracleAdapterV2[OracleAdapterV2.sol]
+end
+Ownable --> MarketFactory
+Ownable --> MarketFactoryV3
+Ownable --> DIDRegistry
+AccessControl --> OracleAdapter
+AccessControl --> OracleAdapterV2
+SafeERC20 --> PredictionMarket
+SafeERC20 --> PredictionMarketV3
+SafeERC20 --> MultiOutcomeMarket
+ReentrancyGuard --> PredictionMarketV3
+ReentrancyGuard --> MultiOutcomeMarket
+Pausable --> MarketFactoryV3
+```
+
+**图表来源**
+- [MarketFactory.sol:6-8](file://contracts/MarketFactory.sol#L6-L8)
+- [PredictionMarketV3.sol:6-8](file://contracts/PredictionMarketV3.sol#L6-L8)
+- [OracleAdapterV2.sol:6-7](file://contracts/OracleAdapterV2.sol#L6-L7)
+
+### 数据流分析
+系统中的主要数据流包括：
+
+1. **用户交互数据流**：用户操作 → 市场合约 → 预言机适配器 → 区块链
+2. **结算数据流**：预言机 → 市场合约 → 用户奖励 → 代币转移
+3. **DID认证数据流**：用户DID → 注册表验证 → 合约存储
+
+**章节来源**
+- [PredictionMarket.test.js:15-34](file://test/PredictionMarket.test.js#L15-L34)
+
+## 性能考虑
+系统在设计时充分考虑了性能优化：
+
+### Gas优化策略
+- **批量操作**：支持多个市场同时创建和管理
+- **状态压缩**：使用紧凑的数据结构减少存储开销
+- **循环优化**：避免不必要的循环和重复计算
+
+### 安全考虑
+- **重入攻击防护**：使用ReentrancyGuard保护关键函数
+- **权限控制**：严格的onlyOwner和onlyOracle修饰符
+- **输入验证**：全面的参数验证和边界检查
+
+### 可扩展性
+- **模块化设计**：独立的功能模块便于扩展
+- **接口抽象**：通过IPredictionMarket接口实现多版本兼容
+- **版本演进**：支持渐进式功能升级
+
+## 故障排除指南
+
+### 常见错误及解决方案
+
+#### 预言机权限错误
+**错误**：`"not oracle"`
+**原因**：调用者没有预言机权限
+**解决方案**：
+```javascript
+// 确保调用者具有预言机角色
+await oracleAdapter.grantOracle(yourAddress);
+```
+
+#### 市场状态错误
+**错误**：`"not open"` 或 `"ended"`
+**原因**：市场不在可操作状态
+**解决方案**：
+```javascript
+// 检查市场状态
+const status = await market.status();
+if (status === 0) {
+    // 市场开放，可以进行操作
+}
+```
+
+#### 金额验证错误
+**错误**：`"zero amount"` 或 `"invalid outcome"`
+**原因**：输入参数无效
+**解决方案**：
+```javascript
+// 确保金额大于0且结果编号有效
+if (amount > 0 && (outcome === 0 || outcome === 1)) {
+    // 执行操作
+}
+```
+
+#### DDoS攻击防护
+**错误**：`"max bet"` 或 `"already claimed"`
+**原因**：超出限制或重复操作
+**解决方案**：
+```javascript
+// 检查用户限额和状态
+const userBetTotal = await market.userBetTotal(userAddress);
+if (userBetTotal < maxBetPerUser) {
+    // 允许下注
+}
+```
+
+**章节来源**
+- [PredictionMarket.test.js:56-76](file://test/PredictionMarket.test.js#L56-L76)
+
+### 调试工具
+系统提供了多种调试和监控工具：
+
+#### 部署脚本
+```bash
+# 本地部署
+npm run deploy:local
+
+# 运行测试
+npm run test
+
+# 生成覆盖率报告
+npm run coverage
+```
+
+#### 配置选项
+- **时间锁延迟**：通过环境变量`ORACLE_TIMELOCK_SECONDS`设置
+- **优化器设置**：编译器优化运行次数为200次
+- **EVM版本**：使用Cancun版本确保最新特性支持
+
+**章节来源**
+- [deploy.js:8-52](file://scripts/deploy.js#L8-L52)
+- [hardhat.config.js:10-16](file://hardhat.config.js#L10-L16)
 
 ## 结论
-本系统通过清晰的分层与严格的权限控制，提供了从市场创建、交易、结算到作废的完整链上预测市场能力。v3 版本引入手续费、流动性与多结果支持，进一步提升可用性与扩展性。建议在生产中结合时间锁与多签机制，确保解析过程的安全可控。
+预测市场DID认证系统提供了一个完整、安全、可扩展的去中心化预测市场解决方案。系统的主要优势包括：
 
-## 附录：API清单与示例
+1. **功能完整性**：涵盖DID认证、市场管理、预言机结算等核心功能
+2. **安全性保障**：多重权限控制和攻击防护机制
+3. **可扩展性**：支持多版本合约和渐进式功能升级
+4. **开发友好**：完善的测试覆盖和部署工具
 
-### IPredictionMarket 接口
-- status(): 返回 uint8（0=Open, 1=Resolved, 2=Voided）
-- resolve(winningOutcome: uint8): 设置获胜结果
-- voidMarket(): 将市场作废
+该系统为构建可信的预测市场生态奠定了坚实的技术基础，支持从简单二元预测到复杂多结果市场的多样化需求。
 
-章节来源
-- [IPredictionMarket.sol](file://contracts/contracts/interfaces/IPredictionMarket.sol#L4-L8)
+## 附录
 
-### MarketFactory（v2）
-- setOracle(_oracle: address)
-- createMarket(matchRef: bytes32, question: string memory, endTime: uint256): (address, uint256)
-- version(): string
+### 版本兼容性
+系统支持多版本合约并提供迁移路径：
+- **v2.x**：基础版本，支持二元预测市场
+- **v3.x**：高级版本，支持CPMM模型和多结果市场
+- **DID集成**：提供去中心化身份认证功能
 
-章节来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L32-L58)
+### 部署配置
+```json
+{
+  "chainId": 31337,
+  "mockUSDC": "0x...",
+  "oracleAdapter": "0x...",
+  "didRegistry": "0x...",
+  "marketFactory": "0x...",
+  "oracle": "0x...",
+  "timelockSeconds": 120,
+  "deployedAt": "2024-01-01T00:00:00Z"
+}
+```
 
-### MarketFactoryV3（v3）
-- pause()/unpause()
-- setOracle(_oracle: address)
-- setDefaultFeeBps(bps: uint16)
-- createBinaryMarket(matchRef: bytes32, question: string memory, endTime: uint256, initialLiquidity: uint256): (address, uint256)
-- createMultiMarket(matchRef: bytes32, question: string memory, endTime: uint256, outcomeCount: uint8): (address, uint256)
-- version(): string
-
-章节来源
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L31-L92)
-
-### OracleAdapter（v2）
-- setTimelockDelay(delay: uint256)
-- setFactory(_factory: address)
-- grantOracle(account: address)
-- requestResolve(market: address, outcome: uint8)
-- confirmResolve(market: address)
-- resolveNow(market: address, outcome: uint8)
-- voidMarket(market: address)
-
-章节来源
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L36-L81)
-
-### OracleAdapterV2（v2）
-- setThreshold(t: uint256)
-- grantOracle(account: address)
-- proposeResolve(market: address, outcome: uint8): uint256
-- approveResolve(id: uint256)
-- voidMarket(market: address)
-
-章节来源
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L35-L81)
-
-### PredictionMarket（v1）
-- buy(outcome: uint8, amount: uint256)
-- resolve(_winningOutcome: uint8)
-- voidMarket()
-- claim()
-- status(): uint8
-
-章节来源
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L64-L113)
-
-### PredictionMarketV3（v3）
-- seedReserves(perSide: uint256, lpRecipient: address)
-- buy(outcome: uint8, amountIn: uint256)
-- addLiquidity(amount: uint256)
-- removeLiquidity(lpAmount: uint256)
-- resolve(_winningOutcome: uint8)
-- voidMarket()
-- claim()
-- status(): uint8
-- getPoolState(): (yesR, noR, priceYesBps)
-
-章节来源
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L76-L176)
-
-### MultiOutcomeMarket（v3）
-- buy(outcome: uint8, amount: uint256)
-- resolve(_outcome: uint8)
-- voidMarket()
-- claim()
-- status(): uint8
-
-章节来源
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L65-L111)
-
-### 使用示例与最佳实践
-- 部署与初始化
-  - 部署 MockUSDC、OracleAdapter、DIDRegistry、MarketFactory
-  - 授权 Oracle 账户并设置工厂地址
-  - 参考：[部署脚本](file://contracts/scripts/deploy.js#L15-L31)
-- 创建市场
-  - 二元市场：[MarketFactory.createMarket](file://contracts/contracts/MarketFactory.sol#L37-L54)
-  - 二元 CPMM 市场：[MarketFactoryV3.createBinaryMarket](file://contracts/contracts/MarketFactoryV3.sol#L37-L66)
-  - 多结果市场：[MarketFactoryV3.createMultiMarket](file://contracts/contracts/MarketFactoryV3.sol#L68-L88)
-- 交易与结算
-  - 二元市场买入：[PredictionMarket.buy](file://contracts/contracts/PredictionMarket.sol#L64-L81)
-  - v3 市场买入/流动性：[PredictionMarketV3.buy/addLiquidity](file://contracts/contracts/PredictionMarketV3.sol#L92-L135)
-  - 多结果市场买入：[MultiOutcomeMarket.buy](file://contracts/contracts/MultiOutcomeMarket.sol#L65-L74)
-- 解析与作废
-  - 时间锁解析：[OracleAdapter.requestResolve/confirmResolve](file://contracts/contracts/OracleAdapter.sol#L48-L67)
-  - 即时解析：[OracleAdapter.resolveNow](file://contracts/contracts/OracleAdapter.sol#L69-L75)
-  - 多签解析：[OracleAdapterV2.proposeResolve/approveResolve](file://contracts/contracts/OracleAdapterV2.sol#L44-L75)
-  - 作废：[OracleAdapter.voidMarket / OracleAdapterV2.voidMarket](file://contracts/contracts/OracleAdapter.sol#L77-L81)
-- 派发
-  - [PredictionMarket.claim](file://contracts/contracts/PredictionMarket.sol#L97-L113)
-  - [PredictionMarketV3.claim](file://contracts/contracts/PredictionMarketV3.sol#L151-L165)
-  - [MultiOutcomeMarket.claim](file://contracts/contracts/MultiOutcomeMarket.sol#L89-L111)
-
-章节来源
-- [deploy.js](file://contracts/scripts/deploy.js#L15-L31)
-- [seed-markets.js](file://contracts/scripts/seed-markets.js#L15-L27)
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L37-L54)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L37-L88)
-- [PredictionMarket.sol](file://contracts/contracts/PredictionMarket.sol#L64-L113)
-- [PredictionMarketV3.sol](file://contracts/contracts/PredictionMarketV3.sol#L92-L165)
-- [MultiOutcomeMarket.sol](file://contracts/contracts/MultiOutcomeMarket.sol#L65-L111)
-- [OracleAdapter.sol](file://contracts/contracts/OracleAdapter.sol#L48-L81)
-- [OracleAdapterV2.sol](file://contracts/contracts/OracleAdapterV2.sol#L44-L81)
-
-### 版本兼容性与变更历史
-- MarketFactory.version(): 返回 "2.0.0-phase2"
-- MarketFactoryV3.version(): 返回 "3.0.0-phase3"
-- 主要变更
-  - v3 引入手续费、最大投注、流动性池与 CPMM 机制
-  - 市场类型区分：二元 v3 与多结果市场
-  - 预言机适配器演进：从时间锁到多签提案
-
-章节来源
-- [MarketFactory.sol](file://contracts/contracts/MarketFactory.sol#L56-L58)
-- [MarketFactoryV3.sol](file://contracts/contracts/MarketFactoryV3.sol#L90-L92)
-
-### SDK 集成与客户端实现指导
-- 部署与配置
-  - 读取部署输出（包含合约地址、链 ID、时间锁等）
-  - 参考：[部署脚本输出](file://contracts/scripts/deploy.js#L36-L49)
-- 市场生命周期
-  - 创建 → 交易 → 解析/作废 → 派发
-  - 参考：[播种脚本批量创建](file://contracts/scripts/seed-markets.js#L15-L27)
-- 预言机操作
-  - 时间锁：先 requestResolve，再 confirmResolve
-  - 多签：proposeResolve，收集足够批准后自动执行
-  - 参考：[OracleAdapter 测试](file://contracts/test/OracleAdapter.test.js#L6-L25)
-- 解析脚本
-  - 通过环境变量指定市场地址与结果
-  - 参考：[解析脚本](file://contracts/scripts/resolve.js#L4-L11)
-
-章节来源
-- [deploy.js](file://contracts/scripts/deploy.js#L36-L49)
-- [seed-markets.js](file://contracts/scripts/seed-markets.js#L15-L27)
-- [OracleAdapter.test.js](file://contracts/test/OracleAdapter.test.js#L6-L25)
-- [resolve.js](file://contracts/scripts/resolve.js#L4-L11)
+### 开发资源
+- **测试框架**：Mocha + Chai + Hardhat
+- **覆盖率工具**：Solidity-coverage
+- **部署工具**：Hardhat脚本和配置
