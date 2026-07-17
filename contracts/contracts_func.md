@@ -1,812 +1,2663 @@
-# Contracts 函数说明文档
+# Contracts 结构体与函数说明文档
 
-本文档按模块（合约文件）整理 `contracts/contracts/` 目录下 Solidity 合约中的函数，包含函数用途、参数说明与返回值说明。公开状态变量（`public`）由编译器自动生成同名 getter，下文仅列出源码中显式定义的函数。
+本文档按模块（合约文件）整理 `contracts/contracts/` 目录下 Solidity 源码。
+范围不含 `node_modules/`、`scripts/`、`test/`。
+`public` 状态变量由编译器自动生成 getter，下文在「状态变量」节列出并注释；显式函数单独成节。
 
 ---
 
-## 1. MockUSDC
+## 1. MockUSDC.sol
 
-测试用 ERC20 抵押代币，精度 6 位（模拟 USDC）。
+#### 合约/模块说明
 
-### 1.1 constructor
+- 测试用 ERC20 抵押代币，6 位小数模拟 USDC（mUSDC）。
+
+#### 规范与约定
+
+- Solidity ^0.8.24；SPDX MIT。
+
+- mint 无权限限制，仅用于测试/本地链。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `ERC20`。
+
+- 覆盖 `decimals()` 返回 6。
+
+#### 事件
+
+- 继承 ERC20 标准 Transfer/Approval 事件。
+
+
+
+### 1.1 MockUSDC 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- 无额外状态变量（名称/符号/总供给由 ERC20 基类管理）。
+
+---
+
+### 1.2 constructor
 
 - **函数用途**
-  - 部署 MockUSDC 代币，设置名称为 `"Mock USDC"`、符号为 `"mUSDC"`。
+
+  - 部署 MockUSDC，初始化 ERC20 名称为 "Mock USDC"、符号 "mUSDC"。
 
 - **函数参数说明**
+
   - 无参数。
 
-- **返回参数说明**
+- **函数返回参数说明**
+
   - 无返回值（构造函数）。
 
-### 1.2 decimals
+- **函数内校验**
 
-- **函数用途**
-  - 覆盖 ERC20 默认精度，返回 6 位小数（与 USDC 一致）。
+  - 无额外 require。
 
-- **函数参数说明**
-  - 无参数。
+- **函数实现效果**
 
-- **返回参数说明**
-  - `uint8`：固定返回 `6`。
+  - 调用 ERC20("Mock USDC", "mUSDC") 初始化。
 
-### 1.3 mint
+- **错误返回**
 
-- **函数用途**
-  - 向指定地址铸造任意数量的 mUSDC（测试环境无权限限制）。
-
-- **函数参数说明**
-  - `to`（`address`）：接收代币的钱包地址。
-  - `amount`（`uint256`）：铸造数量，单位为最小单位（6 位小数）。
-
-- **返回参数说明**
-  - 无返回值。
+  - 无
 
 ---
 
-## 2. IPredictionMarket（interface）
+### 1.3 decimals
 
-预测市场通用接口，供 Oracle Adapter 调用结算与作废。
+- **函数用途**
+
+  - 覆盖 ERC20.decimals，固定 6 位小数。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - `uint8`：恒为 6
+
+- **函数内校验**
+
+  - 无。
+
+- **函数实现效果**
+
+  - `pure override` 直接 return 6。
+
+- **错误返回**
+
+  - 无 revert
+
+---
+
+### 1.4 mint
+
+- **函数用途**
+
+  - 向任意地址铸造 mUSDC。
+
+- **函数参数说明**
+
+  - `to`（address）：接收地址
+
+  - `amount`（uint256）：铸造数量（6 位最小单位）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - 无权限校验（测试合约）。
+
+- **函数实现效果**
+
+  - 内部 `_mint(to, amount)`。
+
+- **错误返回**
+
+  - ERC20 内部溢出/零地址由 OZ 处理
+
+---
+
+## 2. IPredictionMarket.sol（interface）
+
+#### 合约/模块说明
+
+- 预测市场通用接口，供 OracleAdapter / OracleAdapterV2 调用结算与作废。
+
+#### 规范与约定
+
+- status 返回 uint8：Open=0、Resolved=1、Voided=2（与实现合约 enum 对应）。
+
+#### 继承关系
+
+- 无继承；由 PredictionMarket、PredictionMarketV3、MultiOutcomeMarket 等实现。
+
+
 
 ### 2.1 status
 
 - **函数用途**
-  - 查询市场当前状态码（Open=0、Resolved=1、Voided=2，由实现合约定义）。
+
+  - 查询市场状态码。
 
 - **函数参数说明**
+
   - 无参数。
 
-- **返回参数说明**
-  - `uint8`：市场状态枚举的 uint8 表示。
+- **函数返回参数说明**
+
+  - `uint8`：市场状态
+
+- **函数内校验**
+
+  - 由实现合约定义。
+
+- **函数实现效果**
+
+  - view 读取 marketStatus/status。
+
+- **错误返回**
+
+  - 无
+
+---
 
 ### 2.2 resolve
 
 - **函数用途**
-  - 由预言机调用，将市场设为已结算并指定获胜结果。
+
+  - 预言机结算市场并指定获胜 outcome。
 
 - **函数参数说明**
-  - `winningOutcome`（`uint8`）：获胜结果索引（二元市场通常为 0=Yes、1=No）。
 
-- **返回参数说明**
+  - `winningOutcome`（uint8）：获胜结果索引
+
+- **函数返回参数说明**
+
   - 无返回值。
+
+- **函数内校验**
+
+  - 实现合约校验 Open 与 outcome 范围。
+
+- **函数实现效果**
+
+  - 写入 winningOutcome，状态→Resolved。
+
+- **错误返回**
+
+  - 非 Open/outcome 无效：revert
+
+---
 
 ### 2.3 voidMarket
 
 - **函数用途**
-  - 由预言机调用，将开放中的市场作废，允许用户按原投注全额赎回。
+
+  - 预言机作废开放中的市场。
 
 - **函数参数说明**
+
   - 无参数。
 
-- **返回参数说明**
+- **函数返回参数说明**
+
   - 无返回值。
+
+- **函数内校验**
+
+  - 实现合约要求 Open。
+
+- **函数实现效果**
+
+  - 状态→Voided，用户可全额 claim 原投注。
+
+- **错误返回**
+
+  - 非 Open：revert "not open"
 
 ---
 
-## 3. PredictionMarket
+## 3. PredictionMarket.sol
 
-二元（Yes/No） parimutuel（彩池）预测市场合约，Phase 1/2 使用。
+#### 合约/模块说明
 
-### 3.1 constructor
+- Phase 1/2 二元（Yes/No）parimutuel 预测市场。
 
-- **函数用途**
-  - 初始化市场：绑定抵押代币、预言机、工厂、比赛引用、问题描述与结束时间，状态设为 Open。
+#### 规范与约定
 
-- **函数参数说明**
-  - `_collateral`（`address`）：ERC20 抵押代币合约地址，不可为零地址。
-  - `_oracle`（`address`）：有权 resolve/void 的预言机地址，不可为零地址。
-  - `_factory`（`address`）：创建该市场的工厂合约地址。
-  - `_matchRef`（`bytes32`）：链上比赛引用（通常为 external_id 的 Keccak256 哈希）。
-  - `_question`（`string`）：市场问题描述文本。
-  - `_endTime`（`uint256`）：投注截止时间戳（Unix 秒），必须大于当前区块时间。
+- outcome：0=Yes，1=No。
 
-- **返回参数说明**
-  - 无返回值；参数校验失败时 revert。
+- SafeERC20 转账；onlyOracle 修饰 resolve/void。
 
-### 3.2 buy
+#### 继承关系
 
-- **函数用途**
-  - 用户向 Yes（outcome=0）或 No（outcome=1）侧投注，从用户转入 collateral 并累加个人余额与池子。
+- 无显式继承；使用 OZ IERC20/SafeERC20。
 
-- **函数参数说明**
-  - `outcome`（`uint8`）：投注方向，0=Yes，1=No。
-  - `amount`（`uint256`）：投注金额（collateral 最小单位），必须大于 0。
+- 实现 IPredictionMarket 语义（未 formal inherit）。
 
-- **返回参数说明**
-  - 无返回值；市场非 Open、已过期、outcome 无效或 amount 为 0 时 revert；成功时 emit `Bought`。
+#### 事件
 
-### 3.3 resolve
+- `Bought(user, outcome, amount)`：用户下注
 
-- **函数用途**
-  - 预言机将开放市场结算为 Resolved，记录 winningOutcome（仅 `oracle` 地址可调用）。
+- `Resolved(winningOutcome)`：已结算
 
-- **函数参数说明**
-  - `_winningOutcome`（`uint8`）：获胜侧，0 或 1。
+- `Claimed(user, amount)`：用户领取
 
-- **返回参数说明**
-  - 无返回值；非 Open 或 outcome 无效时 revert；成功 emit `Resolved`。
+- `MarketVoided()`：市场作废
 
-### 3.4 voidMarket
 
-- **函数用途**
-  - 预言机将开放市场作废为 Voided，用户后续可全额 claim 原投注（仅 `oracle` 可调用）。
 
-- **函数参数说明**
-  - 无参数。
+### 3.1 Status 枚举
 
-- **返回参数说明**
-  - 无返回值；非 Open 时 revert；成功 emit `MarketVoided`。
+#### 枚举说明
 
-### 3.5 claim
+- 市场生命周期状态。
 
-- **函数用途**
-  - 用户在 Resolved 时按 parimutuel 比例领取奖金，或在 Voided 时领取 Yes+No 原投注总额；每地址仅可 claim 一次。
+#### 枚举值
 
-- **函数参数说明**
-  - 无参数（使用 `msg.sender` 作为领取者）。
+- `Open`（0）：可下注
 
-- **返回参数说明**
-  - 无返回值；已 claim、不可 claim 状态或 payout 为 0 时 revert；成功转账 collateral 并 emit `Claimed`。
+- `Resolved`（1）：已结算，可按 parimutuel 领取
 
-### 3.6 _payoutResolved
-
-- **函数用途**
-  - 内部 view 函数，计算 Resolved 状态下某用户在获胜侧的 parimutuel 应付金额：`userStake * totalPool / winSideTotal`。
-
-- **函数参数说明**
-  - `user`（`address`）：待计算的用户地址。
-
-- **返回参数说明**
-  - `uint256`：应付 payout；用户在该侧无 stake 或获胜侧池为 0 时返回 0。
+- `Voided`（2）：已作废，可全额退回原投注
 
 ---
 
-## 4. MarketFactory
+### 3.2 PredictionMarket 状态变量
 
-Phase 2 市场工厂，由 Owner 部署 `PredictionMarket` 二元 parimutuel 市场。
+#### 状态变量说明
 
-### 4.1 constructor
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
 
-- **函数用途**
-  - 初始化工厂，绑定抵押代币与预言机地址，部署者成为 Owner。
+#### 状态变量（每个变量一行）
 
-- **函数参数说明**
-  - `_collateral`（`address`）：ERC20 抵押代币地址，不可为零地址。
-  - `_oracle`（`address`）：新市场的默认预言机地址，不可为零地址。
+- `collateral`（IERC20 public immutable）：ERC20 抵押代币
 
-- **返回参数说明**
-  - 无返回值。
+- `oracle`（address public immutable）：有权 resolve/void 的预言机地址
 
-### 4.2 setOracle
+- `factory`（address public immutable）：创建该市场的工厂地址
 
-- **函数用途**
-  - Owner 更新后续新创建市场使用的预言机地址。
+- `matchRef`（bytes32 public immutable）：链上比赛引用哈希
 
-- **函数参数说明**
-  - `_oracle`（`address`）：新预言机地址，不可为零地址。
+- `question`（string public）：市场问题描述
 
-- **返回参数说明**
-  - 无返回值；非 Owner 调用 revert。
+- `endTime`（uint256 public）：投注截止 Unix 时间戳
 
-### 4.3 createMarket
+- `status`（Status public）：当前市场状态
 
-- **函数用途**
-  - Owner 部署新的 `PredictionMarket` 实例，递增 `marketCount` 并写入 `markets` 映射。
+- `winningOutcome`（uint8 public）：结算后获胜 outcome
 
-- **函数参数说明**
-  - `matchRef`（`bytes32`）：比赛引用哈希。
-  - `question`（`string`）：市场问题（calldata）。
-  - `endTime`（`uint256`）：投注截止时间戳。
+- `yesPool`（uint256 public）：Yes 侧池子总量
 
-- **返回参数说明**
-  - `market`（`address`）：新部署的市场合约地址。
-  - `marketId`（`uint256`）：自增的市场 ID（从 1 起）。
-  - 成功 emit `MarketCreated`；非 Owner 调用 revert。
+- `noPool`（uint256 public）：No 侧池子总量
 
-### 4.4 version
+- `yesBalance`（mapping(address=>uint256) public）：用户 Yes 持仓
 
-- **函数用途**
-  - 返回工厂合约版本字符串。
+- `noBalance`（mapping(address=>uint256) public）：用户 No 持仓
 
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - `string`：固定返回 `"2.0.0-phase2"`。
+- `claimed`（mapping(address=>bool) public）：用户是否已 claim
 
 ---
 
-## 5. OracleAdapter
+### 3.3 modifier onlyOracle
 
-带时间锁的预言机适配器，为 `IPredictionMarket` 提供 requestResolve + confirmResolve 或 resolveNow 快速路径。
+- **修饰器用途**
 
-### 5.1 constructor
+  - 限制仅 oracle 地址可调用。
 
-- **函数用途**
-  - 初始化 AccessControl，授予 admin 默认管理员与 ORACLE_ROLE，设置 timelock 延迟秒数。
+- **函数内校验**
 
-- **函数参数说明**
-  - `admin`（`address`）：管理员地址，同时获得 DEFAULT_ADMIN_ROLE 与 ORACLE_ROLE。
-  - `_timelockDelay`（`uint256`）：requestResolve 到 confirmResolve 的最小等待秒数。
+  - `msg.sender == oracle`
 
-- **返回参数说明**
-  - 无返回值。
+- **实现效果**
 
-### 5.2 setTimelockDelay
+  - 通过则执行函数体
 
-- **函数用途**
-  - 管理员更新全局 timelock 延迟秒数。
+- **错误返回**
 
-- **函数参数说明**
-  - `delay`（`uint256`）：新的延迟秒数。
-
-- **返回参数说明**
-  - 无返回值；需 DEFAULT_ADMIN_ROLE。
-
-### 5.3 setFactory
-
-- **函数用途**
-  - 管理员设置关联的 MarketFactory 地址（当前 resolve 流程未强制校验，预留扩展）。
-
-- **函数参数说明**
-  - `_factory`（`address`）：工厂合约地址。
-
-- **返回参数说明**
-  - 无返回值；需 DEFAULT_ADMIN_ROLE。
-
-### 5.4 grantOracle
-
-- **函数用途**
-  - 管理员为账户授予 ORACLE_ROLE，允许其发起/确认结算与作废。
-
-- **函数参数说明**
-  - `account`（`address`）：待授权地址。
-
-- **返回参数说明**
-  - 无返回值；需 DEFAULT_ADMIN_ROLE。
-
-### 5.5 requestResolve
-
-- **函数用途**
-  - 预言机提交结算提议，写入 `pending[market]` 并设置 `executeAfter = block.timestamp + timelockDelay`；要求市场 status 为 Open（0）。
-
-- **函数参数说明**
-  - `market`（`address`）：目标预测市场合约地址。
-  - `outcome`（`uint8`）：提议的获胜结果，二元市场为 0 或 1。
-
-- **返回参数说明**
-  - 无返回值；outcome 无效、市场非 Open 或非 ORACLE_ROLE 时 revert；成功 emit `OracleResolveRequested`。
-
-### 5.6 confirmResolve
-
-- **函数用途**
-  - 在时间锁到期后，预言机确认 pending 提议并调用市场的 `resolve(outcome)`。
-
-- **函数参数说明**
-  - `market`（`address`）：目标市场合约地址。
-
-- **返回参数说明**
-  - 无返回值；无 pending、未到期 timelock 或非 ORACLE_ROLE 时 revert；成功 emit `OracleResolveConfirmed`。
-
-### 5.7 resolveNow
-
-- **函数用途**
-  - 当 `timelockDelay == 0` 时的快速结算路径，直接调用市场 `resolve`，跳过 request/confirm。
-
-- **函数参数说明**
-  - `market`（`address`）：目标市场合约地址。
-  - `outcome`（`uint8`）：获胜结果，0 或 1。
-
-- **返回参数说明**
-  - 无返回值；timelockDelay 非 0、outcome 无效或非 ORACLE_ROLE 时 revert；成功 emit `OracleResolveConfirmed`。
-
-### 5.8 voidMarket
-
-- **函数用途**
-  - 预言机调用目标开放市场的 `voidMarket()` 作废市场。
-
-- **函数参数说明**
-  - `market`（`address`）：目标市场合约地址。
-
-- **返回参数说明**
-  - 无返回值；市场非 Open 或非 ORACLE_ROLE 时 revert；成功 emit `MarketVoided`。
+  - `"not oracle"`
 
 ---
 
-## 6. OracleAdapterV2
-
-m-of-n 多签预言机适配器，通过提案与审批达到 threshold 后执行 resolve。
-
-### 6.1 constructor
+### 3.4 constructor
 
 - **函数用途**
-  - 初始化 AccessControl 与多签阈值，admin 获得管理员与 ORACLE_ROLE。
+
+  - 初始化二元 parimutuel 市场。
 
 - **函数参数说明**
-  - `admin`（`address`）：管理员地址。
-  - `_threshold`（`uint256`）：执行 resolve 所需的最少 ORACLE 批准数。
 
-- **返回参数说明**
+  - `_collateral`（address）：抵押代币
+
+  - `_oracle`（address）：预言机
+
+  - `_factory`（address）：工厂
+
+  - `_matchRef`（bytes32）：比赛引用
+
+  - `_question`（string memory）：问题
+
+  - `_endTime`（uint256）：截止时间
+
+- **函数返回参数说明**
+
   - 无返回值。
 
-### 6.2 setThreshold
+- **函数内校验**
 
-- **函数用途**
-  - 管理员更新多签批准阈值。
+  - `_collateral != 0`
 
-- **函数参数说明**
-  - `t`（`uint256`）：新阈值，必须大于 0。
+  - `_oracle != 0`
 
-- **返回参数说明**
-  - 无返回值；阈值为 0 或非管理员时 revert。
+  - `_endTime > block.timestamp`
 
-### 6.3 grantOracle
+- **函数实现效果**
 
-- **函数用途**
-  - 管理员为账户授予 ORACLE_ROLE。
+  - 赋值各 immutable/状态；status=Open
 
-- **函数参数说明**
-  - `account`（`address`）：待授权地址。
+- **错误返回**
 
-- **返回参数说明**
-  - 无返回值；需 DEFAULT_ADMIN_ROLE。
-
-### 6.4 proposeResolve
-
-- **函数用途**
-  - 预言机创建结算提案并自动计入发起人一次批准；若批准数已达 threshold 则立即执行。
-
-- **函数参数说明**
-  - `market`（`address`）：目标市场合约地址。
-  - `outcome`（`uint8`）：获胜结果，允许 0–7（支持多结果市场）。
-
-- **返回参数说明**
-  - `id`（`uint256`）：新提案 ID（自增 `proposalCount`）。
-  - 市场非 Open 或 outcome 无效时 revert；成功 emit `ProposalCreated`。
-
-### 6.5 approveResolve
-
-- **函数用途**
-  - 预言机对已有提案追加批准；达到 threshold 时内部调用 `_execute`。
-
-- **函数参数说明**
-  - `id`（`uint256`）：提案 ID。
-
-- **返回参数说明**
-  - 无返回值；提案已执行、重复批准或非 ORACLE_ROLE 时 revert；成功 emit `ProposalApproved`。
-
-### 6.6 _approve
-
-- **函数用途**
-  - 内部逻辑：标记 `approved[id][msg.sender]`，递增 `approvals`，达 threshold 时调用 `_execute`。
-
-- **函数参数说明**
-  - `id`（`uint256`）：提案 ID。
-
-- **返回参数说明**
-  - 无返回值。
-
-### 6.7 _execute
-
-- **函数用途**
-  - 内部执行：标记提案已执行，调用 `IPredictionMarket(market).resolve(outcome)`。
-
-- **函数参数说明**
-  - `id`（`uint256`）：提案 ID。
-
-- **返回参数说明**
-  - 无返回值；已执行时 revert；成功 emit `ProposalExecuted`。
-
-### 6.8 voidMarket
-
-- **函数用途**
-  - 预言机直接作废开放中的目标市场。
-
-- **函数参数说明**
-  - `market`（`address`）：目标市场合约地址。
-
-- **返回参数说明**
-  - 无返回值；市场非 Open 或非 ORACLE_ROLE 时 revert；成功 emit `MarketVoided`。
+  - `"collateral"`/`"oracle"`/`"end in past"`
 
 ---
 
-## 7. PredictionMarketV3
-
-Phase 3 二元 CPMM（恒定乘积做市）市场，支持 LP 流动性、手续费与用户最大投注限制。
-
-### 7.1 constructor
+### 3.5 buy
 
 - **函数用途**
-  - 初始化 CPMM 二元市场参数；若 `_initialLiquidity > 0` 则在构造时调用 `_seedReserves` 初始化储备（需合约已有足够 collateral 余额）。
+
+  - 用户向 Yes/No 侧投注。
 
 - **函数参数说明**
-  - `_collateral`（`address`）：ERC20 抵押代币地址，不可为零地址。
-  - `_oracle`（`address`）：预言机地址，不可为零地址。
-  - `_factory`（`address`）：工厂合约地址。
-  - `_matchRef`（`bytes32`）：比赛引用。
-  - `_question`（`string`）：市场问题。
-  - `_endTime`（`uint256`）：投注截止时间。
-  - `_feeBps`（`uint16`）：交易手续费基点（10000 = 100%）。
-  - `_initialLiquidity`（`uint256`）：每侧初始流动性；为 0 时不在构造时 seed。
-  - `_maxBetPerUser`（`uint256`）：单用户累计最大投注额；为 0 表示不限制。
 
-- **返回参数说明**
-  - 无返回值；地址为零时 revert。
+  - `outcome`（uint8）：0=Yes，1=No
 
-### 7.2 seedReserves
+  - `amount`（uint256）：投注数量
 
-- **函数用途**
-  - 由工厂在转入 collateral 后调用，为市场两侧各注入 `perSide` 储备并铸造 LP 给 `lpRecipient`；仅允许首次 seed。
+- **函数返回参数说明**
 
-- **函数参数说明**
-  - `perSide`（`uint256`）：YES 与 NO 各侧的储备数量（两侧相等）。
-  - `lpRecipient`（`address`）：接收 LP 份额的地址（通常为创建者）。
+  - 无返回值。
 
-- **返回参数说明**
-  - 无返回值；非 factory 调用、已 seed 或合约 collateral 余额不足时 revert；成功 emit `LiquidityAdded`。
+- **函数内校验**
 
-### 7.3 _seedReserves
+  - status==Open
 
-- **函数用途**
-  - 内部初始化：`reserveYes = reserveNo = perSide`，`lpBalance[lpRecipient] = totalLPSupply = perSide * 2`。
+  - block.timestamp < endTime
 
-- **函数参数说明**
-  - `perSide`（`uint256`）：每侧储备量。
-  - `lpRecipient`（`address`）：LP 接收者。
+  - outcome<=1
 
-- **返回参数说明**
-  - 无返回值；collateral 余额不足时 revert。
+  - amount>0
 
-### 7.4 buy
+- **函数实现效果**
 
-- **函数用途**
-  - 用户按 CPMM 曲线购买 Yes/No 份额：扣除 feeBps 手续费后执行 `_swap`，更新用户 yes/no 余额与 `userBetTotal`。
+  - safeTransferFrom 收 collateral
 
-- **函数参数说明**
-  - `outcome`（`uint8`）：购买方向，0=Yes，1=No。
-  - `amountIn`（`uint256`）：投入的 collateral 总量（含手续费）。
+  - 累加 yesBalance/noBalance 与 yesPool/noPool
 
-- **返回参数说明**
-  - 无返回值；市场非 Open、已结束、参数无效或超过 maxBetPerUser 时 revert；成功 emit `Bought`（含 sharesOut）。
+  - emit Bought
 
-### 7.5 addLiquidity
+- **错误返回**
 
-- **函数用途**
-  - 用户追加流动性：collateral 一半加 reserveYes、另一半加 reserveNo，按 1:1  mint LP。
-
-- **函数参数说明**
-  - `amount`（`uint256`）：投入的 collateral 总量，必须大于 0。
-
-- **返回参数说明**
-  - 无返回值；市场非 Open 或 amount 为 0 时 revert；成功 emit `LiquidityAdded`。
-
-### 7.6 removeLiquidity
-
-- **函数用途**
-  - 用户销毁 LP，按当前 reserve 比例取回 yes/no 侧 collateral 总和。
-
-- **函数参数说明**
-  - `lpAmount`（`uint256`）：要销毁的 LP 数量，不得超过用户 lpBalance。
-
-- **返回参数说明**
-  - 无返回值；LP 不足或 lpAmount 为 0 时 revert；成功转账并 emit `LiquidityRemoved`。
-
-### 7.7 resolve
-
-- **函数用途**
-  - 预言机将市场设为 Resolved 并记录 winningOutcome（仅 oracle 可调用）。
-
-- **函数参数说明**
-  - `_outcome`（`uint8`）：获胜结果，0 或 1。
-
-- **返回参数说明**
-  - 无返回值；非 Open 或 outcome 无效时 revert；成功 emit `Resolved`。
-
-### 7.8 voidMarket
-
-- **函数用途**
-  - 预言机将开放市场作废为 Voided。
-
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - 无返回值；非 Open 时 revert；成功 emit `MarketVoided`。
-
-### 7.9 claim
-
-- **函数用途**
-  - Resolved 时按获胜侧份额占 reserve 比例领取；Voided 时领取 yes+no 余额总和；每地址一次。
-
-- **函数参数说明**
-  - 无参数（`msg.sender` 为领取者）。
-
-- **返回参数说明**
-  - 无返回值；已 claim、不可 claim 或 payout 为 0 时 revert；成功转账 emit `Claimed`。
-
-### 7.10 status
-
-- **函数用途**
-  - 实现 `IPredictionMarket` 兼容接口，返回 `marketStatus` 的 uint8 值。
-
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - `uint8`：Open=0，Resolved=1，Voided=2。
-
-### 7.11 getPoolState
-
-- **函数用途**
-  - 查询当前 CPMM 储备与隐含 YES 价格（基点）。
-
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - `yesR`（`uint256`）：YES 侧 reserveYes。
-  - `noR`（`uint256`）：NO 侧 reserveNo。
-  - `priceYesBps`（`uint256`）：YES 隐含价格基点，公式 `(reserveNo * 10000) / (reserveYes + reserveNo)`；总储备为 0 时默认 5000。
-
-### 7.12 _swap
-
-- **函数用途**
-  - 内部 CPMM 交换：根据 outcome 用 net 输入更新 reserve 并计算输出 sharesOut。
-
-- **函数参数说明**
-  - `outcome`（`uint8`）：0 买 Yes（减 reserveYes、增 reserveNo），1 买 No。
-  - `net`（`uint256`）：扣除手续费后的净输入量。
-
-- **返回参数说明**
-  - `sharesOut`（`uint256`）：用户获得的 Yes/No 份额数量。
-
-### 7.13 _claimResolved
-
-- **函数用途**
-  - 内部 view：Resolved 状态下计算用户按获胜侧份额占该侧 reserve 比例的可领取金额。
-
-- **函数参数说明**
-  - `user`（`address`）：用户地址。
-
-- **返回参数说明**
-  - `uint256`：应付 payout；获胜侧 reserve 为 0 时返回 0。
+  - `"not open"`/`"ended"`/`"invalid outcome"`/`"zero amount"`
 
 ---
 
-## 8. MultiOutcomeMarket
-
-2–8 结果的多 outcome parimutuel 市场，支持 feeBps 手续费。
-
-### 8.1 constructor
+### 3.6 resolve
 
 - **函数用途**
-  - 初始化多结果市场，创建 `outcomeCount` 长度的 pool 数组并设为 Open。
+
+  - 预言机结算市场。
 
 - **函数参数说明**
-  - `_collateral`（`address`）：ERC20 抵押代币地址。
-  - `_oracle`（`address`）：预言机地址。
-  - `_matchRef`（`bytes32`）：比赛引用。
-  - `_question`（`string`）：市场问题。
-  - `_endTime`（`uint256`）：投注截止时间。
-  - `_outcomeCount`（`uint8`）：结果数量，必须在 2–8 之间。
-  - `_feeBps`（`uint16`）：手续费基点。
 
-- **返回参数说明**
-  - 无返回值；outcomeCount 不在范围内时 revert。
+  - `_winningOutcome`（uint8）：获胜侧 0 或 1
 
-### 8.2 status
+- **函数返回参数说明**
 
-- **函数用途**
-  - 返回 `marketStatus` 的 uint8，供 Oracle Adapter 查询。
+  - 无返回值。
 
-- **函数参数说明**
-  - 无参数。
+- **函数内校验**
 
-- **返回参数说明**
-  - `uint8`：Open=0，Resolved=1，Voided=2。
+  - onlyOracle
 
-### 8.3 buy
+  - status==Open
 
-- **函数用途**
-  - 用户向指定 outcome 投注，扣除 fee 后 net 计入 pool 与用户 stake。
+  - _winningOutcome<=1
 
-- **函数参数说明**
-  - `outcome`（`uint8`）：结果索引，必须 `< outcomeCount`。
-  - `amount`（`uint256`）：投注总量（含 fee），必须大于 0。
+- **函数实现效果**
 
-- **返回参数说明**
-  - 无返回值；市场已关闭或参数无效时 revert；成功 emit `Bought`。
+  - status=Resolved；winningOutcome 写入；emit Resolved
 
-### 8.4 resolve
+- **错误返回**
 
-- **函数用途**
-  - 预言机结算市场，指定 winningOutcome（仅 oracle 可调用）。
-
-- **函数参数说明**
-  - `_outcome`（`uint8`）：获胜结果索引，必须 `< outcomeCount`。
-
-- **返回参数说明**
-  - 无返回值；非 Open 或 outcome 无效时 revert；成功 emit `Resolved`。
-
-### 8.5 voidMarket
-
-- **函数用途**
-  - 预言机将开放市场作废。
-
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - 无返回值；非 Open 时 revert；成功 emit `MarketVoided`。
-
-### 8.6 claim
-
-- **函数用途**
-  - Resolved 时按 parimutuel 从总池分配：`stake[user][winningOutcome] * totalPool / winPool`；Voided 时退还各 outcome stake 之和。
-
-- **函数参数说明**
-  - 无参数（`msg.sender` 为领取者）。
-
-- **返回参数说明**
-  - 无返回值；已 claim、不可 claim、获胜池为空或 payout 为 0 时 revert；成功转账 emit `Claimed`。
+  - `"not open"`/`"invalid outcome"`/`"not oracle"`
 
 ---
 
-## 9. MarketFactoryV3
-
-Phase 3 市场工厂，支持部署 CPMM 二元市场（PredictionMarketV3）与多结果市场（MultiOutcomeMarket），含 Pausable 暂停机制。
-
-### 9.1 constructor
+### 3.7 voidMarket
 
 - **函数用途**
-  - 初始化抵押代币、预言机、默认手续费与默认单用户最大投注（10_000 * 1e6）。
+
+  - 预言机作废市场。
 
 - **函数参数说明**
-  - `_collateral`（`address`）：ERC20 抵押代币地址。
-  - `_oracle`（`address`）：新市场默认预言机地址。
-  - `_feeBps`（`uint16`）：默认手续费基点。
 
-- **返回参数说明**
-  - 无返回值；部署者成为 Owner。
-
-### 9.2 pause
-
-- **函数用途**
-  - Owner 暂停工厂，阻止新的 createBinaryMarket / createMultiMarket。
-
-- **函数参数说明**
   - 无参数。
 
-- **返回参数说明**
-  - 无返回值；非 Owner 时 revert。
+- **函数返回参数说明**
 
-### 9.3 unpause
-
-- **函数用途**
-  - Owner 恢复工厂，允许创建市场。
-
-- **函数参数说明**
-  - 无参数。
-
-- **返回参数说明**
-  - 无返回值；非 Owner 时 revert。
-
-### 9.4 setOracle
-
-- **函数用途**
-  - Owner 更新后续新市场的预言机地址。
-
-- **函数参数说明**
-  - `_oracle`（`address`）：新预言机地址。
-
-- **返回参数说明**
   - 无返回值。
 
-### 9.5 setDefaultFeeBps
+- **函数内校验**
+
+  - onlyOracle
+
+  - status==Open
+
+- **函数实现效果**
+
+  - status=Voided；emit MarketVoided
+
+- **错误返回**
+
+  - `"not open"`/`"not oracle"`
+
+---
+
+### 3.8 claim
 
 - **函数用途**
-  - Owner 更新新市场的默认手续费基点。
+
+  - 用户领取 Resolved 奖金或 Voided 退款。
 
 - **函数参数说明**
-  - `bps`（`uint16`）：新默认 feeBps。
 
-- **返回参数说明**
+  - 无参数（msg.sender）。
+
+- **函数返回参数说明**
+
   - 无返回值。
 
-### 9.6 createBinaryMarket
+- **函数内校验**
+
+  - !claimed[sender]
+
+  - status 为 Resolved 或 Voided
+
+  - payout>0
+
+- **函数实现效果**
+
+  - Resolved：parimutuel `_payoutResolved`
+
+  - Voided：yesBalance+noBalance
+
+  - claimed=true；safeTransfer；emit Claimed
+
+- **错误返回**
+
+  - `"already claimed"`/`"not claimable"`/`"nothing to claim"`
+
+---
+
+### 3.9 _payoutResolved
 
 - **函数用途**
-  - Owner 部署 `PredictionMarketV3`；若 `initialLiquidity > 0`，从 Owner 转入 `initialLiquidity * 2` collateral 并 seed 储备，LP 给 Owner。
+
+  - 内部 view：计算 Resolved 下用户 payout。
 
 - **函数参数说明**
-  - `matchRef`（`bytes32`）：比赛引用。
-  - `question`（`string`）：市场问题。
-  - `endTime`（`uint256`）：投注截止时间。
-  - `initialLiquidity`（`uint256`）：每侧初始流动性；为 0 时不 seed。
 
-- **返回参数说明**
-  - `market`（`address`）：新部署的 PredictionMarketV3 地址。
-  - `id`（`uint256`）：自增市场 ID；`marketTypes[id] = 0`（binary v3）。
-  - 工厂暂停或非 Owner 时 revert；成功 emit `BinaryMarketCreated`。
+  - `user`（address）：用户地址
 
-### 9.7 createMultiMarket
+- **函数返回参数说明**
+
+  - `uint256`：应付金额，无 stake 或获胜池为 0 时返回 0
+
+- **函数内校验**
+
+  - winningOutcome 决定 userStake 与 winSideTotal
+
+- **函数实现效果**
+
+  - `(userStake * totalPool) / winSideTotal`
+
+- **错误返回**
+
+  - 无 revert（返回 0）
+
+---
+
+## 4. MarketFactory.sol
+
+#### 合约/模块说明
+
+- Phase 2 市场工厂，Owner 部署 PredictionMarket 实例。
+
+#### 规范与约定
+
+- marketId 从 1 自增；createMarket 仅 Owner。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `Ownable`（部署者为 Owner）。
+
+#### 事件
+
+- `MarketCreated(marketId, market, matchRef, question, endTime)`
+
+
+
+### 4.1 MarketFactory 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `collateral`（IERC20 public immutable）：抵押代币
+
+- `oracle`（address public）：新市场默认预言机（可 setOracle 更新）
+
+- `marketCount`（uint256 public）：已创建市场计数
+
+- `markets`（mapping(uint256=>address) public）：marketId→市场地址
+
+---
+
+### 4.2 constructor
 
 - **函数用途**
-  - Owner 部署 `MultiOutcomeMarket` 多结果 parimutuel 市场。
+
+  - 初始化工厂。
 
 - **函数参数说明**
-  - `matchRef`（`bytes32`）：比赛引用。
-  - `question`（`string`）：市场问题。
-  - `endTime`（`uint256`）：投注截止时间。
-  - `outcomeCount`（`uint8`）：结果数量（2–8，由 MultiOutcomeMarket 构造校验）。
 
-- **返回参数说明**
-  - `market`（`address`）：新部署的 MultiOutcomeMarket 地址。
-  - `id`（`uint256`）：自增市场 ID；`marketTypes[id] = 1`（multi）。
-  - 工厂暂停或非 Owner 时 revert；成功 emit `MultiMarketCreated`。
+  - `_collateral`
 
-### 9.8 version
+  - `_oracle`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - 两者非零地址
+
+- **函数实现效果**
+
+  - Ownable(msg.sender)；保存 collateral/oracle
+
+- **错误返回**
+
+  - `"collateral"`/`"oracle"`
+
+---
+
+### 4.3 setOracle
 
 - **函数用途**
+
+  - Owner 更新后续市场的 oracle。
+
+- **函数参数说明**
+
+  - `_oracle`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOwner
+
+  - _oracle!=0
+
+- **函数实现效果**
+
+  - oracle=_oracle
+
+- **错误返回**
+
+  - `"oracle"`
+
+---
+
+### 4.4 createMarket
+
+- **函数用途**
+
+  - Owner 部署新 PredictionMarket。
+
+- **函数参数说明**
+
+  - `matchRef`（bytes32）
+
+  - `question`（string calldata）
+
+  - `endTime`（uint256）
+
+- **函数返回参数说明**
+
+  - `market`（address）：新合约地址
+
+  - `marketId`（uint256）：自增 ID
+
+- **函数内校验**
+
+  - onlyOwner
+
+- **函数实现效果**
+
+  - new PredictionMarket(...)
+
+  - marketCount++；markets[id]=market
+
+  - emit MarketCreated
+
+- **错误返回**
+
+  - 构造参数 invalid 时 revert
+
+---
+
+### 4.5 version
+
+- **函数用途**
+
   - 返回工厂版本字符串。
 
 - **函数参数说明**
+
   - 无参数。
 
-- **返回参数说明**
-  - `string`：固定返回 `"3.0.0-phase3"`。
+- **函数返回参数说明**
+
+  - `string memory`："2.0.0-phase2"
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - pure 返回常量
+
+- **错误返回**
+
+  - 无
 
 ---
 
-## 10. DIDRegistry
+## 5. OracleAdapter.sol
 
-可选链上 DID 哈希绑定注册表，用户通过以太坊签名证明身份后绑定 `didHash`。
+#### 合约/模块说明
 
-### 10.1 constructor
+- 带时间锁的预言机适配器：requestResolve + confirmResolve，或 resolveNow 快速路径。
+
+#### 规范与约定
+
+- ORACLE_ROLE 可发起/确认结算；DEFAULT_ADMIN_ROLE 管理配置。
+
+- pending 映射存 timelock 提议。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `AccessControl`。
+
+#### 事件
+
+- `OracleResolveRequested(market, outcome, executeAfter)`
+
+- `OracleResolveConfirmed(market, outcome)`
+
+- `MarketVoided(market)`
+
+
+
+### 5.1 PendingResolve 结构体
+
+#### 结构体说明
+
+- 单市场待确认结算提议。
+
+#### 规范与约定
+
+- 存储于 mapping(address=>PendingResolve) pending。
+
+#### 组合/依赖关系
+
+- requestResolve 写入；confirmResolve 读取并清除 active。
+
+#### 结构体字段
+
+- `outcome`（uint8）：提议获胜 outcome
+
+- `executeAfter`（uint256）：最早可 confirm 的时间戳
+
+- `active`（bool）：提议是否有效
+
+---
+
+### 5.2 OracleAdapter 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `ORACLE_ROLE`（bytes32 public constant）：预言机角色标识
+
+- `timelockDelay`（uint256 public）：request 到 confirm 的最小等待秒数
+
+- `factory`（address public）：关联工厂（预留）
+
+- `pending`（mapping(address=>PendingResolve) public）：市场→待确认提议
+
+---
+
+### 5.3 constructor
 
 - **函数用途**
-  - 部署 DID 注册表，部署者成为 Owner。
+
+  - 初始化 AccessControl 与 timelock。
 
 - **函数参数说明**
-  - 无参数。
 
-- **返回参数说明**
+  - `admin`（address）
+
+  - `_timelockDelay`（uint256）
+
+- **函数返回参数说明**
+
   - 无返回值。
 
-### 10.2 bindDid
+- **函数内校验**
 
-- **函数用途**
-  - 用户绑定 DID 哈希：验证对 `keccak256("BindDID:", msg.sender, didHash)` 的 EIP-191 签名，签名者必须为 `msg.sender`，通过后写入 `didHashOf[msg.sender]`。
+  - 无
 
-- **函数参数说明**
-  - `didHash`（`bytes32`）：DID 内容的 Keccak256 哈希，不可为零。
-  - `signature`（`bytes`）：用户对上述 digest 的 ECDSA 签名（calldata）。
+- **函数实现效果**
 
-- **返回参数说明**
-  - 无返回值；didHash 为空或签名无效时 revert；成功 emit `DidBound`。
+  - admin 获得 DEFAULT_ADMIN_ROLE 与 ORACLE_ROLE
 
-### 10.3 resolveDid
+  - timelockDelay=_timelockDelay
 
-- **函数用途**
-  - 查询某账户已绑定的 DID 哈希。
+- **错误返回**
 
-- **函数参数说明**
-  - `account`（`address`）：待查询的钱包地址。
-
-- **返回参数说明**
-  - `bytes32`：该账户绑定的 didHash；未绑定时为 `bytes32(0)`。
+  - 无
 
 ---
 
-## 附录：public 状态变量自动 getter
+### 5.4 setTimelockDelay
 
-以下 `public` 变量由 Solidity 编译器生成同名 view getter（单参数 mapping 需传入 key），未在上文逐条列出：
+- **函数用途**
 
-- **PredictionMarket**：`collateral`、`oracle`、`factory`、`matchRef`、`question`、`endTime`、`status`、`winningOutcome`、`yesPool`、`noPool`、`yesBalance(address)`、`noBalance(address)`、`claimed(address)`
-- **MarketFactory**：`collateral`、`oracle`、`marketCount`、`markets(uint256)`
-- **OracleAdapter**：`ORACLE_ROLE`、`timelockDelay`、`factory`、`pending(address)`
-- **OracleAdapterV2**：`ORACLE_ROLE`、`threshold`、`proposalCount`、`proposals(uint256)`、`approved(uint256,address)`
-- **PredictionMarketV3**：`collateral`、`oracle`、`factory`、`matchRef`、`question`、`endTime`、`feeBps`、`maxBetPerUser`、`marketStatus`、`winningOutcome`、`reserveYes`、`reserveNo`、`totalLPSupply`、`collectedFees`、`yesBalance(address)`、`noBalance(address)`、`lpBalance(address)`、`userBetTotal(address)`、`claimed(address)`
-- **MultiOutcomeMarket**：`collateral`、`oracle`、`matchRef`、`question`、`endTime`、`outcomeCount`、`feeBps`、`marketStatus`、`winningOutcome`、`pool(uint256)`、`stake(address,uint8)`、`claimed(address)`
-- **MarketFactoryV3**：`collateral`、`oracle`、`defaultFeeBps`、`defaultMaxBet`、`marketCount`、`markets(uint256)`、`marketTypes(uint256)`
-- **DIDRegistry**：`didHashOf(address)`
+  - 管理员更新 timelock 秒数。
+
+- **函数参数说明**
+
+  - `delay`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(DEFAULT_ADMIN_ROLE)
+
+- **函数实现效果**
+
+  - timelockDelay=delay
+
+- **错误返回**
+
+  - 无 admin 权限 revert
+
+---
+
+### 5.5 setFactory
+
+- **函数用途**
+
+  - 管理员设置 factory 地址。
+
+- **函数参数说明**
+
+  - `_factory`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(DEFAULT_ADMIN_ROLE)
+
+- **函数实现效果**
+
+  - factory=_factory
+
+- **错误返回**
+
+  - 无 admin revert
+
+---
+
+### 5.6 grantOracle
+
+- **函数用途**
+
+  - 管理员授予 ORACLE_ROLE。
+
+- **函数参数说明**
+
+  - `account`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(DEFAULT_ADMIN_ROLE)
+
+- **函数实现效果**
+
+  - _grantRole(ORACLE_ROLE, account)
+
+- **错误返回**
+
+  - 无 admin revert
+
+---
+
+### 5.7 requestResolve
+
+- **函数用途**
+
+  - 预言机提交带 timelock 的结算请求。
+
+- **函数参数说明**
+
+  - `market`（address）
+
+  - `outcome`（uint8）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - outcome<=1
+
+  - IPredictionMarket(market).status()==0
+
+- **函数实现效果**
+
+  - executeAfter=block.timestamp+timelockDelay
+
+  - pending[market] 写入
+
+  - emit OracleResolveRequested
+
+- **错误返回**
+
+  - `"invalid outcome"`/`"not open"`
+
+---
+
+### 5.8 confirmResolve
+
+- **函数用途**
+
+  - timelock 到期后确认并 resolve。
+
+- **函数参数说明**
+
+  - `market`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - p.active
+
+  - block.timestamp>=p.executeAfter
+
+- **函数实现效果**
+
+  - p.active=false；IPredictionMarket.resolve(outcome)；emit Confirmed
+
+- **错误返回**
+
+  - `"no pending"`/`"timelock"`
+
+---
+
+### 5.9 resolveNow
+
+- **函数用途**
+
+  - timelockDelay==0 时立即 resolve。
+
+- **函数参数说明**
+
+  - `market`
+
+  - `outcome`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - timelockDelay==0
+
+  - outcome<=1
+
+- **函数实现效果**
+
+  - 直接 IPredictionMarket.resolve；emit Confirmed
+
+- **错误返回**
+
+  - `"use request+confirm"`
+
+---
+
+### 5.10 voidMarket
+
+- **函数用途**
+
+  - 预言机作废目标市场。
+
+- **函数参数说明**
+
+  - `market`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - market.status()==0
+
+- **函数实现效果**
+
+  - IPredictionMarket.voidMarket；emit MarketVoided
+
+- **错误返回**
+
+  - `"not open"`
+
+---
+
+## 6. OracleAdapterV2.sol
+
+#### 合约/模块说明
+
+- m-of-n 多签预言机：提案 + 批准达 threshold 后 execute resolve。
+
+#### 规范与约定
+
+- outcome 允许 0–7 以支持多结果市场。
+
+- proposeResolve 自动计入发起人一次 approve。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `AccessControl`。
+
+#### 事件
+
+- ProposalCreated/Approved/Executed
+
+- MarketVoided
+
+
+
+### 6.1 Proposal 结构体
+
+#### 结构体说明
+
+- 结算提案。
+
+#### 规范与约定
+
+- approvals 达 threshold 时 _execute。
+
+#### 组合/依赖关系
+
+- proposals[id] 存储。
+
+#### 结构体字段
+
+- `market`（address）：目标市场
+
+- `outcome`（uint8）：提议 outcome
+
+- `approvals`（uint256）：当前批准数
+
+- `executed`（bool）：是否已执行
+
+---
+
+### 6.2 OracleAdapterV2 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `ORACLE_ROLE`（bytes32 public constant）
+
+- `threshold`（uint256 public）：执行所需最少 ORACLE 批准数
+
+- `proposalCount`（uint256 public）：提案自增计数
+
+- `proposals`（mapping(uint256=>Proposal) public）
+
+- `approved`（mapping(uint256=>mapping(address=>bool)) public）：提案→预言机→是否已批
+
+---
+
+### 6.3 constructor
+
+- **函数用途**
+
+  - 初始化多签阈值与角色。
+
+- **函数参数说明**
+
+  - `admin`
+
+  - `_threshold`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - admin 获 ADMIN+ORACLE；threshold=_threshold
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 6.4 setThreshold
+
+- **函数用途**
+
+  - 更新 threshold。
+
+- **函数参数说明**
+
+  - `t`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(DEFAULT_ADMIN_ROLE)
+
+  - t>0
+
+- **函数实现效果**
+
+  - threshold=t
+
+- **错误返回**
+
+  - `"threshold"`
+
+---
+
+### 6.5 grantOracle
+
+- **函数用途**
+
+  - 授予 ORACLE_ROLE。
+
+- **函数参数说明**
+
+  - `account`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(DEFAULT_ADMIN_ROLE)
+
+- **函数实现效果**
+
+  - _grantRole
+
+- **错误返回**
+
+  - 无 admin revert
+
+---
+
+### 6.6 proposeResolve
+
+- **函数用途**
+
+  - 创建提案并自动 _approve 一次。
+
+- **函数参数说明**
+
+  - `market`
+
+  - `outcome`
+
+- **函数返回参数说明**
+
+  - `id`（uint256）：新提案 ID
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - outcome<=7
+
+  - market.status()==0
+
+- **函数实现效果**
+
+  - proposalCount++；写入 Proposal；_approve(id)；emit Created
+
+- **错误返回**
+
+  - `"outcome"`/`"not open"`
+
+---
+
+### 6.7 approveResolve
+
+- **函数用途**
+
+  - 对已有提案追加批准。
+
+- **函数参数说明**
+
+  - `id`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+- **函数实现效果**
+
+  - _approve(id)
+
+- **错误返回**
+
+  - _approve 内 revert
+
+---
+
+### 6.8 _approve
+
+- **函数用途**
+
+  - 内部：标记 approved、递增 approvals，达 threshold 则 _execute。
+
+- **函数参数说明**
+
+  - `id`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - !p.executed
+
+  - !approved[id][sender]
+
+- **函数实现效果**
+
+  - approved=true；approvals++；emit Approved；可能 _execute
+
+- **错误返回**
+
+  - `"executed"`/`"approved"`
+
+---
+
+### 6.9 _execute
+
+- **函数用途**
+
+  - 内部：标记 executed 并 resolve。
+
+- **函数参数说明**
+
+  - `id`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - !p.executed
+
+- **函数实现效果**
+
+  - p.executed=true；IPredictionMarket.resolve；emit Executed
+
+- **错误返回**
+
+  - `"executed"`
+
+---
+
+### 6.10 voidMarket
+
+- **函数用途**
+
+  - 作废开放市场。
+
+- **函数参数说明**
+
+  - `market`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyRole(ORACLE_ROLE)
+
+  - status==0
+
+- **函数实现效果**
+
+  - voidMarket；emit MarketVoided
+
+- **错误返回**
+
+  - `"not open"`
+
+---
+
+## 7. PredictionMarketV3.sol
+
+#### 合约/模块说明
+
+- Phase 3 二元 CPMM 市场：恒定乘积做市、LP、手续费、单用户 maxBet。
+
+#### 规范与约定
+
+- feeBps 基数 10000；buy 扣 fee 后 _swap。
+
+- ReentrancyGuard + nonReentrant 保护 claim/LP/buy。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `ReentrancyGuard`。
+
+- 实现 IPredictionMarket.status/resolve/voidMarket 语义。
+
+#### 事件
+
+- Bought
+
+- LiquidityAdded/Removed
+
+- Resolved
+
+- Claimed
+
+- MarketVoided
+
+
+
+### 7.1 Status 枚举
+
+#### 枚举说明
+
+- 同 PredictionMarket：Open/Resolved/Voided。
+
+#### 枚举值
+
+- Open(0)
+
+- Resolved(1)
+
+- Voided(2)
+
+---
+
+### 7.2 PredictionMarketV3 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `collateral`（IERC20 public immutable）
+
+- `oracle`（address public immutable）
+
+- `factory`（address public immutable）
+
+- `matchRef`（bytes32 public immutable）
+
+- `question`（string public）
+
+- `endTime`（uint256 public）
+
+- `feeBps`（uint16 public）：交易手续费基点
+
+- `maxBetPerUser`（uint256 public）：单用户累计最大投注，0=不限制
+
+- `marketStatus`（Status public）
+
+- `winningOutcome`（uint8 public）
+
+- `reserveYes/reserveNo`（uint256 public）：CPMM 两侧储备
+
+- `totalLPSupply`（uint256 public）：LP 总供给
+
+- `collectedFees`（uint256 public）：累计手续费
+
+- `yesBalance/noBalance`（mapping public）：用户份额
+
+- `lpBalance`（mapping public）：用户 LP
+
+- `userBetTotal`（mapping public）：用户累计投注
+
+- `claimed`（mapping public）：是否已 claim
+
+---
+
+### 7.3 modifier onlyOracle
+
+- **修饰器用途**
+
+  - 仅 oracle 可调 resolve/void。
+
+- **函数内校验**
+
+  - msg.sender==oracle
+
+- **实现效果**
+
+  - 执行函数体
+
+- **错误返回**
+
+  - `"not oracle"`
+
+---
+
+### 7.4 constructor
+
+- **函数用途**
+
+  - 初始化 CPMM 市场。
+
+- **函数参数说明**
+
+  - `_collateral`
+
+  - `_oracle`
+
+  - `_factory`
+
+  - `_matchRef`
+
+  - `_question`
+
+  - `_endTime`
+
+  - `_feeBps`
+
+  - `_initialLiquidity`
+
+  - `_maxBetPerUser`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - collateral 与 oracle 非零
+
+- **函数实现效果**
+
+  - 赋值字段；marketStatus=Open
+
+  - 若 _initialLiquidity>0 则 _seedReserves(..., msg.sender)
+
+- **错误返回**
+
+  - `"zero addr"`
+
+---
+
+### 7.5 seedReserves
+
+- **函数用途**
+
+  - 工厂在转入 collateral 后 seed 储备。
+
+- **函数参数说明**
+
+  - `perSide`（uint256）
+
+  - `lpRecipient`（address）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - msg.sender==factory
+
+  - totalLPSupply==0
+
+- **函数实现效果**
+
+  - _seedReserves
+
+- **错误返回**
+
+  - `"not factory"`/`"already seeded"`
+
+---
+
+### 7.6 _seedReserves
+
+- **函数用途**
+
+  - 内部初始化 reserve 与 LP。
+
+- **函数参数说明**
+
+  - `perSide`
+
+  - `lpRecipient`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - collateral.balanceOf(this) >= perSide*2
+
+- **函数实现效果**
+
+  - reserveYes=reserveNo=perSide；mint LP；emit LiquidityAdded
+
+- **错误返回**
+
+  - `"insufficient seed"`
+
+---
+
+### 7.7 buy
+
+- **函数用途**
+
+  - CPMM 购买 Yes/No 份额。
+
+- **函数参数说明**
+
+  - `outcome`（uint8）
+
+  - `amountIn`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - Open
+
+  - 未过 endTime
+
+  - outcome<=1
+
+  - amountIn>0
+
+  - maxBetPerUser==0 或 userBetTotal+amountIn<=maxBet
+
+- **函数实现效果**
+
+  - 扣 fee；safeTransferFrom
+
+  - _swap 得 sharesOut
+
+  - 更新 yesBalance/noBalance 与 userBetTotal
+
+  - emit Bought
+
+- **错误返回**
+
+  - 各类 require 字符串
+
+---
+
+### 7.8 addLiquidity
+
+- **函数用途**
+
+  - 追加流动性，1:1 注入 reserveYes/No。
+
+- **函数参数说明**
+
+  - `amount`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - Open
+
+  - amount>0
+
+- **函数实现效果**
+
+  - half 加 reserveYes，余量加 reserveNo
+
+  - mint LP
+
+  - emit LiquidityAdded
+
+- **错误返回**
+
+  - `"not open"`/`"zero"`
+
+---
+
+### 7.9 removeLiquidity
+
+- **函数用途**
+
+  - 销毁 LP 按比例取回 collateral。
+
+- **函数参数说明**
+
+  - `lpAmount`（uint256）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - lpAmount>0
+
+  - lpBalance>=lpAmount
+
+- **函数实现效果**
+
+  - 按 reserve 比例计算 yesOut/noOut
+
+  - 更新 reserve/LP/totalLPSupply
+
+  - safeTransfer
+
+  - emit LiquidityRemoved
+
+- **错误返回**
+
+  - `"lp"`
+
+---
+
+### 7.10 resolve
+
+- **函数用途**
+
+  - 预言机结算。
+
+- **函数参数说明**
+
+  - `_outcome`（uint8）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOracle
+
+  - Open
+
+  - _outcome<=1
+
+- **函数实现效果**
+
+  - marketStatus=Resolved；emit Resolved
+
+- **错误返回**
+
+  - `"not open"`/`"invalid"`
+
+---
+
+### 7.11 voidMarket
+
+- **函数用途**
+
+  - 预言机作废。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOracle
+
+  - Open
+
+- **函数实现效果**
+
+  - marketStatus=Voided
+
+- **错误返回**
+
+  - `"not open"`
+
+---
+
+### 7.12 claim
+
+- **函数用途**
+
+  - 领取 Resolved/Voided 收益。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - !claimed
+
+  - payout>0
+
+  - Resolved 或 Voided
+
+- **函数实现效果**
+
+  - Resolved: _claimResolved
+
+  - Voided: yes+no balance
+
+  - claimed=true；transfer
+
+- **错误返回**
+
+  - `"claimed"`/`"not claimable"`/`"nothing"`
+
+---
+
+### 7.13 status
+
+- **函数用途**
+
+  - IPredictionMarket 兼容 getter。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - `uint8`：marketStatus
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - return uint8(marketStatus)
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 7.14 getPoolState
+
+- **函数用途**
+
+  - 查询 CPMM 储备与 YES 价格 bps。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - `yesR`（uint256）：reserveYes
+
+  - `noR`（uint256）：reserveNo
+
+  - `priceYesBps`（uint256）：(reserveNo*10000)/total，total=0 时 5000
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - view 返回三值
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 7.15 _swap
+
+- **函数用途**
+
+  - 内部 CPMM 交换。
+
+- **函数参数说明**
+
+  - `outcome`（uint8）
+
+  - `net`（uint256）：扣费后净输入
+
+- **函数返回参数说明**
+
+  - `sharesOut`（uint256）：输出份额
+
+- **函数内校验**
+
+  - outcome 0 或 1
+
+- **函数实现效果**
+
+  - outcome=0：减 reserveYes 增 reserveNo
+
+  - outcome=1：减 reserveNo 增 reserveYes
+
+- **错误返回**
+
+  - 无 revert（依赖 reserve 充足）
+
+---
+
+### 7.16 _claimResolved
+
+- **函数用途**
+
+  - 内部 view：Resolved 领取额。
+
+- **函数参数说明**
+
+  - `user`（address）
+
+- **函数返回参数说明**
+
+  - `uint256` payout
+
+- **函数内校验**
+
+  - 获胜侧 reserve 为 0 返回 0
+
+- **函数实现效果**
+
+  - (balance*total)/winReserve
+
+- **错误返回**
+
+  - 无
+
+---
+
+## 8. MultiOutcomeMarket.sol
+
+#### 合约/模块说明
+
+- 2–8 结果 parimutuel 多选项市场，含 feeBps。
+
+#### 规范与约定
+
+- pool[] 各 outcome 池；stake[user][outcome] 用户投注。
+
+- fee 从 amount 扣除，net 入池。
+
+#### 继承关系
+
+- 继承 `ReentrancyGuard`。
+
+- 实现 status/resolve/voidMarket。
+
+#### 事件
+
+- Bought
+
+- Resolved
+
+- Claimed
+
+- MarketVoided
+
+
+
+### 8.1 Status 枚举
+
+#### 枚举说明
+
+- Open/Resolved/Voided。
+
+#### 枚举值
+
+- 同前
+
+---
+
+### 8.2 MultiOutcomeMarket 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `collateral`（IERC20 public immutable）
+
+- `oracle`（address public immutable）
+
+- `matchRef`（bytes32 public immutable）
+
+- `question`（string public）
+
+- `endTime`（uint256 public）
+
+- `outcomeCount`（uint8 public）：结果数 2–8
+
+- `feeBps`（uint16 public）
+
+- `marketStatus`（Status public）
+
+- `winningOutcome`（uint8 public）
+
+- `pool`（uint256[] public）：各 outcome 池（public 带 index getter）
+
+- `stake`（mapping(address=>mapping(uint8=>uint256)) public）
+
+- `claimed`（mapping(address=>bool) public）
+
+---
+
+### 8.3 modifier onlyOracle
+
+- **修饰器用途**
+
+  - 仅 oracle。
+
+- **函数内校验**
+
+  - msg.sender==oracle
+
+- **实现效果**
+
+  - 执行函数体
+
+- **错误返回**
+
+  - `"not oracle"`
+
+---
+
+### 8.4 constructor
+
+- **函数用途**
+
+  - 初始化多结果市场。
+
+- **函数参数说明**
+
+  - `_collateral`
+
+  - `_oracle`
+
+  - `_matchRef`
+
+  - `_question`
+
+  - `_endTime`
+
+  - `_outcomeCount`
+
+  - `_feeBps`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - _outcomeCount 在 2–8
+
+- **函数实现效果**
+
+  - 初始化 pool 数组长度为 outcomeCount
+
+- **错误返回**
+
+  - `"outcomes"`
+
+---
+
+### 8.5 status
+
+- **函数用途**
+
+  - 返回 marketStatus uint8。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - `uint8`
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - view
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 8.6 buy
+
+- **函数用途**
+
+  - 向指定 outcome 投注。
+
+- **函数参数说明**
+
+  - `outcome`
+
+  - `amount`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - Open 且未过 endTime
+
+  - outcome<outcomeCount
+
+  - amount>0
+
+- **函数实现效果**
+
+  - 扣 fee；transferFrom；pool 与 stake 累加 net；emit Bought
+
+- **错误返回**
+
+  - `"closed"`/`"invalid"`
+
+---
+
+### 8.7 resolve
+
+- **函数用途**
+
+  - 预言机结算。
+
+- **函数参数说明**
+
+  - `_outcome`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOracle
+
+  - Open
+
+  - _outcome<outcomeCount
+
+- **函数实现效果**
+
+  - Resolved；emit
+
+- **错误返回**
+
+  - `"invalid"`
+
+---
+
+### 8.8 voidMarket
+
+- **函数用途**
+
+  - 作废。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOracle
+
+  - Open
+
+- **函数实现效果**
+
+  - Voided
+
+- **错误返回**
+
+  - `"not open"`
+
+---
+
+### 8.9 claim
+
+- **函数用途**
+
+  - 领取。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - nonReentrant
+
+  - !claimed
+
+  - payout>0
+
+  - Resolved: winPool>0
+
+  - Voided: 各 stake 之和
+
+- **函数实现效果**
+
+  - parimutuel 或全额退；transfer
+
+- **错误返回**
+
+  - `"claimed"`/`"empty"`/`"nothing"`/`"not claimable"`
+
+---
+
+## 9. MarketFactoryV3.sol
+
+#### 合约/模块说明
+
+- Phase 3 工厂：部署 PredictionMarketV3 与 MultiOutcomeMarket。
+
+- Pausable 暂停创建。
+
+#### 规范与约定
+
+- marketTypes: 0=binary v3, 1=multi。
+
+- createBinaryMarket 可选 initialLiquidity seed。
+
+#### 继承关系
+
+- 继承 `Ownable` 与 `Pausable`（多继承）。
+
+#### 事件
+
+- BinaryMarketCreated
+
+- MultiMarketCreated
+
+
+
+### 9.1 MarketFactoryV3 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `collateral`（IERC20 public immutable）
+
+- `oracle`（address public）
+
+- `defaultFeeBps`（uint16 public）
+
+- `defaultMaxBet`（uint256 public）：默认 10000*1e6
+
+- `marketCount`（uint256 public）
+
+- `markets`（mapping(uint256=>address) public）
+
+- `marketTypes`（mapping(uint256=>uint8) public）
+
+---
+
+### 9.2 constructor
+
+- **函数用途**
+
+  - 初始化工厂默认值。
+
+- **函数参数说明**
+
+  - `_collateral`
+
+  - `_oracle`
+
+  - `_feeBps`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - Ownable(msg.sender)
+
+  - defaultMaxBet=10000*1e6
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 9.3 pause
+
+- **函数用途**
+
+  - Owner 暂停工厂。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOwner
+
+- **函数实现效果**
+
+  - _pause()
+
+- **错误返回**
+
+  - 非 Owner revert
+
+---
+
+### 9.4 unpause
+
+- **函数用途**
+
+  - Owner 恢复。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOwner
+
+- **函数实现效果**
+
+  - _unpause()
+
+- **错误返回**
+
+  - 非 Owner revert
+
+---
+
+### 9.5 setOracle
+
+- **函数用途**
+
+  - 更新 oracle。
+
+- **函数参数说明**
+
+  - `_oracle`
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOwner
+
+- **函数实现效果**
+
+  - oracle=_oracle
+
+- **错误返回**
+
+  - 非 Owner revert
+
+---
+
+### 9.6 setDefaultFeeBps
+
+- **函数用途**
+
+  - 更新默认 fee。
+
+- **函数参数说明**
+
+  - `bps`（uint16）
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - onlyOwner
+
+- **函数实现效果**
+
+  - defaultFeeBps=bps
+
+- **错误返回**
+
+  - 非 Owner revert
+
+---
+
+### 9.7 createBinaryMarket
+
+- **函数用途**
+
+  - 部署 V3 二元市场。
+
+- **函数参数说明**
+
+  - `matchRef`
+
+  - `question`
+
+  - `endTime`
+
+  - `initialLiquidity`
+
+- **函数返回参数说明**
+
+  - `market`（address）
+
+  - `id`（uint256）
+
+- **函数内校验**
+
+  - onlyOwner
+
+  - whenNotPaused
+
+- **函数实现效果**
+
+  - initialLiquidity>0 时 transferFrom Owner 2*liquidity
+
+  - new PredictionMarketV3(..., initialLiquidity=0 构造)
+
+  - transfer 至 market 并 seedReserves
+
+  - marketCount++；marketTypes=0
+
+  - emit BinaryMarketCreated
+
+- **错误返回**
+
+  - pause/transfer/seed revert
+
+---
+
+### 9.8 createMultiMarket
+
+- **函数用途**
+
+  - 部署多结果市场。
+
+- **函数参数说明**
+
+  - `matchRef`
+
+  - `question`
+
+  - `endTime`
+
+  - `outcomeCount`
+
+- **函数返回参数说明**
+
+  - `market`
+
+  - `id`
+
+- **函数内校验**
+
+  - onlyOwner
+
+  - whenNotPaused
+
+- **函数实现效果**
+
+  - new MultiOutcomeMarket
+
+  - marketTypes=1
+
+  - emit MultiMarketCreated
+
+- **错误返回**
+
+  - 构造 outcome 校验 revert
+
+---
+
+### 9.9 version
+
+- **函数用途**
+
+  - 版本字符串。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - `string`："3.0.0-phase3"
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - pure
+
+- **错误返回**
+
+  - 无
+
+---
+
+## 10. DIDRegistry.sol
+
+#### 合约/模块说明
+
+- 可选链上 DID 哈希绑定：用户 EIP-191 签名证明后写入 didHashOf。
+
+#### 规范与约定
+
+- digest = keccak256("BindDID:", msg.sender, didHash) 的 eth signed message。
+
+#### 继承关系
+
+- 继承 OpenZeppelin `Ownable`。
+
+- 使用 ECDSA + MessageHashUtils。
+
+#### 事件
+
+- `DidBound(account, didHash)`
+
+
+
+### 10.1 DIDRegistry 状态变量
+
+#### 状态变量说明
+
+- 下列为合约显式声明的状态变量；`public` 变量由编译器自动生成同名 getter。
+
+#### 状态变量（每个变量一行）
+
+- `didHashOf`（mapping(address=>bytes32) public）：账户→DID 内容 Keccak256 哈希
+
+---
+
+### 10.2 constructor
+
+- **函数用途**
+
+  - 部署注册表，部署者为 Owner。
+
+- **函数参数说明**
+
+  - 无参数。
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - Ownable(msg.sender)
+
+- **错误返回**
+
+  - 无
+
+---
+
+### 10.3 bindDid
+
+- **函数用途**
+
+  - 用户绑定 DID 哈希。
+
+- **函数参数说明**
+
+  - `didHash`（bytes32）：DID 内容哈希，不可为零
+
+  - `signature`（bytes calldata）：对 digest 的 ECDSA 签名
+
+- **函数返回参数说明**
+
+  - 无返回值。
+
+- **函数内校验**
+
+  - didHash != 0
+
+  - recover(signature) == msg.sender
+
+- **函数实现效果**
+
+  - didHashOf[msg.sender]=didHash；emit DidBound
+
+- **错误返回**
+
+  - `"empty did"`/`"invalid sig"`
+
+---
+
+### 10.4 resolveDid
+
+- **函数用途**
+
+  - 查询账户绑定的 didHash。
+
+- **函数参数说明**
+
+  - `account`（address）
+
+- **函数返回参数说明**
+
+  - `bytes32`：didHash，未绑定为 0
+
+- **函数内校验**
+
+  - 无
+
+- **函数实现效果**
+
+  - view 读 mapping
+
+- **错误返回**
+
+  - 无
+
+---
+
+## 附录：编译器自动生成的 public getter
+
+
+
+下列 `public` 状态变量除上文注释外，Solidity 自动生成同名 view 函数（mapping 需传入 key/index）：
+
+
+
+1. **PredictionMarket**：collateral、oracle、factory、matchRef、question、endTime、status、winningOutcome、yesPool、noPool、yesBalance(addr)、noBalance(addr)、claimed(addr)
+
+
+
+2. **MarketFactory**：collateral、oracle、marketCount、markets(id)
+
+
+
+3. **OracleAdapter**：ORACLE_ROLE、timelockDelay、factory、pending(market)
+
+
+
+4. **OracleAdapterV2**：ORACLE_ROLE、threshold、proposalCount、proposals(id)、approved(id,oracle)
+
+
+
+5. **PredictionMarketV3**：collateral、oracle、factory、matchRef、question、endTime、feeBps、maxBetPerUser、marketStatus、winningOutcome、reserveYes、reserveNo、totalLPSupply、collectedFees、yesBalance、noBalance、lpBalance、userBetTotal、claimed
+
+
+
+6. **MultiOutcomeMarket**：collateral、oracle、matchRef、question、endTime、outcomeCount、feeBps、marketStatus、winningOutcome、pool(i)、stake(user,outcome)、claimed(user)
+
+
+
+7. **MarketFactoryV3**：collateral、oracle、defaultFeeBps、defaultMaxBet、marketCount、markets(id)、marketTypes(id)
+
+
+
+8. **DIDRegistry**：didHashOf(account)
+
+
+
+9. **MockUSDC**（ERC20）：name、symbol、decimals、totalSupply、balanceOf、allowance 等标准 ERC20 getter
